@@ -174,64 +174,86 @@ class PhotoMentor:
         return fixed
 
     # ------------------------------------------------------------------
-    # Composition Overlays
+    # Standardized Composition Overlays
     # ------------------------------------------------------------------
     def _draw_golden_spiral(self, canvas, color, thickness):
-        """Renders complete Golden Spiral and Golden Rectangles across full image frame."""
+        """Fits a standardized 1.618:1 Golden Rectangle into the image and draws a complete Golden Spiral."""
         phi = 1.61803398875
-        x, y, w, h = 0, 0, self.width, self.height
 
-        # Golden Ratio Logarithmic Spiral Parameters
-        b = np.log(phi) / (np.pi / 2)
-        
-        # Subdivide frame into 8 golden rectangles and plot bounding boxes
-        rects = []
-        for i in range(8):
-            if w <= 1 or h <= 1:
+        # 1. Fit a perfect Golden Rectangle (1.618 : 1) into current image dimensions
+        img_aspect = self.width / self.height
+
+        if img_aspect >= phi:
+            # Image is wider than golden ratio -> constrain by height
+            rect_h = self.height
+            rect_w = int(rect_h * phi)
+        else:
+            # Image is narrower than golden ratio -> constrain by width
+            rect_w = self.width
+            rect_h = int(rect_w / phi)
+
+        # Center the fixed golden rectangle in image
+        x_offset = (self.width - rect_w) // 2
+        y_offset = (self.height - rect_h) // 2
+
+        # Outline the main Golden Rectangle
+        cv2.rectangle(
+            canvas,
+            (x_offset, y_offset),
+            (x_offset + rect_w, y_offset + rect_h),
+            color,
+            1,
+        )
+
+        # 2. Subdivide golden rectangle and draw 8 continuous quarter-circle arcs
+        x, y, w, h = x_offset, y_offset, rect_w, rect_h
+        state = 0  # 0: Left, 1: Top, 2: Right, 3: Bottom
+
+        for _ in range(8):
+            if w <= 2 or h <= 2:
                 break
-            rects.append((x, y, w, h))
 
-            if i % 4 == 0:
-                side = int(h) if h < w else int(w / phi)
-                cv2.line(canvas, (x + side, y), (x + side, y + h), color, 1)
-                x += side
-                w -= side
-            elif i % 4 == 1:
-                side = int(w) if w < h else int(h / phi)
-                cv2.line(canvas, (x, y + side), (x + w, y + side), color, 1)
-                y += side
-                h -= side
-            elif i % 4 == 2:
-                side = int(h) if h < w else int(w / phi)
-                cv2.line(canvas, (x + w - side, y), (x + w - side, y + h), color, 1)
-                w -= side
-            elif i % 4 == 3:
-                side = int(w) if w < h else int(h / phi)
-                cv2.line(canvas, (x, y + h - side), (x + w, y + h - side), color, 1)
-                h -= side
+            if state == 0:  # Cut square on Left
+                s = h
+                if s > w:
+                    s = w
+                # Line divider
+                cv2.line(canvas, (x + s, y), (x + s, y + h), color, 1)
+                # Quarter-circle arc from top-left to bottom-right corner of square
+                center = (x + s, y + h)
+                cv2.ellipse(canvas, center, (s, s), 0, 180, 270, color, thickness)
+                x += s
+                w -= s
 
-        # Draw smooth logarithmic spiral overlay points
-        # Spiral convergence focal point estimated from golden rectangle ratio
-        cx = int(self.width * 0.7236)
-        cy = int(self.height * 0.2764)
+            elif state == 1:  # Cut square on Top
+                s = w
+                if s > h:
+                    s = h
+                cv2.line(canvas, (x, y + s), (x + w, y + s), color, 1)
+                center = (x, y + s)
+                cv2.ellipse(canvas, center, (s, s), 0, 270, 360, color, thickness)
+                y += s
+                h -= s
 
-        theta_max = 4.5 * np.pi
-        thetas = np.linspace(0, theta_max, 500)
-        
-        # Scale factor a to stretch spiral from corner (0, H) to center focus
-        max_r = np.sqrt((0 - cx)**2 + (self.height - cy)**2)
-        a = max_r / np.exp(b * theta_max)
+            elif state == 2:  # Cut square on Right
+                s = h
+                if s > w:
+                    s = w
+                cv2.line(canvas, (x + w - s, y), (x + w - s, y + h), color, 1)
+                center = (x + w - s, y)
+                cv2.ellipse(canvas, center, (s, s), 0, 0, 90, color, thickness)
+                w -= s
 
-        points = []
-        for theta in thetas:
-            r = a * np.exp(b * theta)
-            # Parametric spiral coordinates
-            px = int(cx + r * np.cos(theta_max - theta))
-            py = int(cy + r * np.sin(theta_max - theta))
-            points.append([px, py])
+            elif state == 3:  # Cut square on Bottom
+                s = w
+                if s > h:
+                    s = h
+                cv2.line(canvas, (x, y + h - s), (x + w, y + h - s), color, 1)
+                center = (x + w, y + h - s)
+                cv2.ellipse(canvas, center, (s, s), 0, 90, 180, color, thickness)
+                h -= s
 
-        pts = np.array(points, np.int32).reshape((-1, 1, 2))
-        cv2.polylines(canvas, [pts], isClosed=False, color=color, thickness=thickness)
+            state = (state + 1) % 4
 
     def draw_composition_guide(self, guide_type="Golden Spiral"):
         """Draws specified composition guide over image."""
