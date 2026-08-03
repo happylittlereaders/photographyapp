@@ -57,8 +57,7 @@ class PhotoMentor:
         cl = clahe.apply(l_channel)
 
         merged = cv2.merge((cl, a_channel, b_channel))
-        fixed = cv2.cvtColor(merged, cv2.COLOR_LAB2BGR)
-        return fixed
+        return cv2.cvtColor(merged, cv2.COLOR_LAB2BGR)
 
     # ------------------------------------------------------------------
     # 2. Composition (Horizon Tilt)
@@ -97,13 +96,11 @@ class PhotoMentor:
         if abs(tilt) <= 2:
             return src.copy()
 
-        # Rotate image to correct tilt
         center = (self.width // 2, self.height // 2)
         matrix = cv2.getRotationMatrix2D(center, tilt, 1.0)
-        corrected = cv2.warpAffine(
+        return cv2.warpAffine(
             src, matrix, (self.width, self.height), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE
         )
-        return corrected
 
     # ------------------------------------------------------------------
     # 3. Sharpness
@@ -125,11 +122,10 @@ class PhotoMentor:
         return grade, advice, sharpness
 
     def fix_sharpness(self, img_bgr=None):
-        """Applies gentle unsharp masking filter to sharpen image."""
+        """Applies unsharp masking filter to sharpen image."""
         src = self.img if img_bgr is None else img_bgr
         blurred = cv2.GaussianBlur(src, (0, 0), 3)
-        sharpened = cv2.addWeighted(src, 1.5, blurred, -0.5, 0)
-        return sharpened
+        return cv2.addWeighted(src, 1.5, blurred, -0.5, 0)
 
     # ------------------------------------------------------------------
     # 4. Color Saturation
@@ -151,7 +147,7 @@ class PhotoMentor:
         return grade, advice, avg_saturation
 
     def fix_saturation(self, img_bgr=None):
-        """Normalizes saturation towards healthy mean (approx 100-120)."""
+        """Normalizes saturation towards healthy mean."""
         src = self.img if img_bgr is None else img_bgr
         hsv = cv2.cvtColor(src, cv2.COLOR_BGR2HSV)
         h, s, v = cv2.split(hsv)
@@ -166,10 +162,10 @@ class PhotoMentor:
         return cv2.cvtColor(fixed_hsv, cv2.COLOR_HSV2BGR)
 
     # ------------------------------------------------------------------
-    # Fully Corrected Master Image
+    # Master Fixed Image
     # ------------------------------------------------------------------
     def generate_master_fixed_image(self):
-        """Applies all available fixes sequentially to construct final corrected photo."""
+        """Applies all available fixes sequentially."""
         fixed = self.fix_exposure(self.img)
         fixed = self.fix_composition(fixed)
         fixed = self.fix_sharpness(fixed)
@@ -180,9 +176,9 @@ class PhotoMentor:
     # Composition Overlays
     # ------------------------------------------------------------------
     def draw_composition_guide(self, guide_type="Rule of Thirds"):
-        """Draws specified composition grid or guide over copy of image."""
+        """Draws specified composition grid or guide over image."""
         canvas = self.img.copy()
-        color = (111, 200, 220)  # Hex #dcc86f converted to BGR (220, 200, 111)
+        color = (111, 200, 220)  # Hex #dcc86f in BGR format
         thickness = 2
 
         if guide_type == "Rule of Thirds":
@@ -196,15 +192,12 @@ class PhotoMentor:
             w_ratio = int(self.width / (1 + phi))
             h_ratio = int(self.height / (1 + phi))
 
-            # Vertical golden lines
             cv2.line(canvas, (w_ratio, 0), (w_ratio, self.height), color, thickness)
             cv2.line(canvas, (self.width - w_ratio, 0), (self.width - w_ratio, self.height), color, thickness)
-            # Horizontal golden lines
             cv2.line(canvas, (0, h_ratio), (self.width, h_ratio), color, thickness)
             cv2.line(canvas, (0, self.height - h_ratio), (self.width, self.height - h_ratio), color, thickness)
 
         elif guide_type == "Golden Section":
-            # 0.382 / 0.236 / 0.382 proportional spacing
             x1, x2 = int(self.width * 0.382), int(self.width * 0.618)
             y1, y2 = int(self.height * 0.382), int(self.height * 0.618)
 
@@ -214,10 +207,7 @@ class PhotoMentor:
             cv2.line(canvas, (0, y2), (self.width, y2), color, thickness)
 
         elif guide_type == "Golden Triangles":
-            # Main diagonal
             cv2.line(canvas, (0, self.height), (self.width, 0), color, thickness)
-            # Perpendicular lines from remaining corners to main diagonal
-            # Coordinates approximation for perpendicular intersection
             x_proj1 = int(self.width * (self.height**2) / (self.width**2 + self.height**2))
             y_proj1 = int(self.height - (self.height * (x_proj1 / self.width)))
 
