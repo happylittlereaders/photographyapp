@@ -26,7 +26,7 @@ class PhotoMentor:
         self.height, self.width = self.gray.shape
 
     # ------------------------------------------------------------------
-    # 1. Exposure
+    # 1. Exposure (Gentle Adjustment)
     # ------------------------------------------------------------------
     def analyze_exposure(self):
         """Returns (grade, advice, avg_brightness) based on brightness & clipping."""
@@ -49,16 +49,32 @@ class PhotoMentor:
         return grade, advice, avg_brightness
 
     def fix_exposure(self, img_bgr=None):
-        """Applies CLAHE to balance exposure."""
+        """Applies a subtle gamma correction curve to gently balance exposure."""
         src = self.img if img_bgr is None else img_bgr
-        lab = cv2.cvtColor(src, cv2.COLOR_BGR2LAB)
-        l_channel, a_channel, b_channel = cv2.split(lab)
+        grade, _, avg_brightness = self.analyze_exposure()
 
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        cl = clahe.apply(l_channel)
+        # If exposure is already well balanced, leave it untouched
+        if grade == "Well exposed":
+            return src.copy()
 
-        merged = cv2.merge((cl, a_channel, b_channel))
-        return cv2.cvtColor(merged, cv2.COLOR_LAB2BGR)
+        # Calculate target gamma based on deviation from standard midtone (~128)
+        # Clamped between 0.75 and 1.25 so corrections are never extreme
+        if avg_brightness < 1:
+            avg_brightness = 1
+        
+        target_brightness = 128.0
+        gamma = np.clip(target_brightness / avg_brightness, 0.75, 1.25)
+
+        # Build gamma lookup table for smooth tone mapping
+        inv_gamma = 1.0 / gamma
+        table = np.array(
+            [((i / 255.0) ** inv_gamma) * 255 for i in np.arange(0, 256)]
+        ).astype("uint8")
+
+        adjusted = cv2.LUT(src, table)
+
+        # Blend 50% adjusted + 50% original for an extra gentle transition
+        return cv2.addWeighted(src, 0.5, adjusted, 0.5, 0)
 
     # ------------------------------------------------------------------
     # 2. Composition (Horizon Tilt)
@@ -127,11 +143,9 @@ class PhotoMentor:
         src = self.img if img_bgr is None else img_bgr
         grade, _, _ = self.analyze_sharpness()
 
-        # If already sharp, return copy without adding extra sharpness
         if grade != "Possibly blurry":
             return src.copy()
 
-        # Subtle unsharp mask (1.15 / -0.15 weight factor instead of harsh 1.5 / -0.5)
         blurred = cv2.GaussianBlur(src, (0, 0), 2.0)
         return cv2.addWeighted(src, 1.15, blurred, -0.15, 0)
 
@@ -162,9 +176,9 @@ class PhotoMentor:
 
         avg_sat = np.mean(s)
         if avg_sat < 30:
-            s = cv2.add(s, 35)
+            s = cv2.add(s, 20)
         elif avg_sat > 200:
-            s = cv2.subtract(s, 30)
+            s = cv2.subtract(s, 20)
 
         fixed_hsv = cv2.merge((h, s, v))
         return cv2.cvtColor(fixed_hsv, cv2.COLOR_HSV2BGR)
@@ -186,8 +200,6 @@ class PhotoMentor:
     def _draw_golden_spiral(self, canvas, color, thickness):
         """Fits a standardized 1.618:1 Golden Rectangle into the image and draws a complete Golden Spiral."""
         phi = 1.61803398875
-
-        # 1. Fit a perfect Golden Rectangle (1.618 : 1) into current image dimensions
         img_aspect = self.width / self.height
 
         if img_aspect >= phi:
@@ -197,11 +209,9 @@ class PhotoMentor:
             rect_w = self.width
             rect_h = int(rect_w / phi)
 
-        # Center the fixed golden rectangle in image
         x_offset = (self.width - rect_w) // 2
         y_offset = (self.height - rect_h) // 2
 
-        # Outline the main Golden Rectangle
         cv2.rectangle(
             canvas,
             (x_offset, y_offset),
@@ -210,15 +220,14 @@ class PhotoMentor:
             1,
         )
 
-        # 2. Subdivide golden rectangle and draw 8 continuous quarter-circle arcs
         x, y, w, h = x_offset, y_offset, rect_w, rect_h
-        state = 0  # 0: Left, 1: Top, 2: Right, 3: Bottom
+        state = 0
 
         for _ in range(8):
             if w <= 2 or h <= 2:
                 break
 
-            if state == 0:  # Cut square on Left
+            if state == 0:
                 s = min(h, w)
                 cv2.line(canvas, (x + s, y), (x + s, y + h), color, 1)
                 center = (x + s, y + h)
@@ -226,7 +235,7 @@ class PhotoMentor:
                 x += s
                 w -= s
 
-            elif state == 1:  # Cut square on Top
+            elif state == 1:
                 s = min(w, h)
                 cv2.line(canvas, (x, y + s), (x + w, y + s), color, 1)
                 center = (x, y + s)
@@ -234,14 +243,14 @@ class PhotoMentor:
                 y += s
                 h -= s
 
-            elif state == 2:  # Cut square on Right
+            elif state == 2:
                 s = min(h, w)
                 cv2.line(canvas, (x + w - s, y), (x + w - s, y + h), color, 1)
                 center = (x + w - s, y)
                 cv2.ellipse(canvas, center, (s, s), 0, 0, 90, color, thickness)
                 w -= s
 
-            elif state == 3:  # Cut square on Bottom
+            elif state == 3:
                 s = min(w, h)
                 cv2.line(canvas, (x, y + h - s), (x + w, y + h - s), color, 1)
                 center = (x + w, y + h - s)
