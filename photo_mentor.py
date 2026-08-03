@@ -1,8 +1,8 @@
 """
 photo_mentor.py
 ----------------
-Core analysis, composition guides (including Golden Spiral & Golden Triangles),
-and auto-correction algorithms.
+Core analysis, composition guides (Golden Spiral, Golden Triangles, etc.),
+and image correction logic.
 """
 
 import cv2
@@ -176,6 +176,63 @@ class PhotoMentor:
     # ------------------------------------------------------------------
     # Composition Overlays
     # ------------------------------------------------------------------
+    def _draw_golden_spiral(self, canvas, color, thickness):
+        """Renders complete Golden Spiral and Golden Rectangles across full image frame."""
+        phi = 1.61803398875
+        x, y, w, h = 0, 0, self.width, self.height
+
+        # Golden Ratio Logarithmic Spiral Parameters
+        b = np.log(phi) / (np.pi / 2)
+        
+        # Subdivide frame into 8 golden rectangles and plot bounding boxes
+        rects = []
+        for i in range(8):
+            if w <= 1 or h <= 1:
+                break
+            rects.append((x, y, w, h))
+
+            if i % 4 == 0:
+                side = int(h) if h < w else int(w / phi)
+                cv2.line(canvas, (x + side, y), (x + side, y + h), color, 1)
+                x += side
+                w -= side
+            elif i % 4 == 1:
+                side = int(w) if w < h else int(h / phi)
+                cv2.line(canvas, (x, y + side), (x + w, y + side), color, 1)
+                y += side
+                h -= side
+            elif i % 4 == 2:
+                side = int(h) if h < w else int(w / phi)
+                cv2.line(canvas, (x + w - side, y), (x + w - side, y + h), color, 1)
+                w -= side
+            elif i % 4 == 3:
+                side = int(w) if w < h else int(h / phi)
+                cv2.line(canvas, (x, y + h - side), (x + w, y + h - side), color, 1)
+                h -= side
+
+        # Draw smooth logarithmic spiral overlay points
+        # Spiral convergence focal point estimated from golden rectangle ratio
+        cx = int(self.width * 0.7236)
+        cy = int(self.height * 0.2764)
+
+        theta_max = 4.5 * np.pi
+        thetas = np.linspace(0, theta_max, 500)
+        
+        # Scale factor a to stretch spiral from corner (0, H) to center focus
+        max_r = np.sqrt((0 - cx)**2 + (self.height - cy)**2)
+        a = max_r / np.exp(b * theta_max)
+
+        points = []
+        for theta in thetas:
+            r = a * np.exp(b * theta)
+            # Parametric spiral coordinates
+            px = int(cx + r * np.cos(theta_max - theta))
+            py = int(cy + r * np.sin(theta_max - theta))
+            points.append([px, py])
+
+        pts = np.array(points, np.int32).reshape((-1, 1, 2))
+        cv2.polylines(canvas, [pts], isClosed=False, color=color, thickness=thickness)
+
     def draw_composition_guide(self, guide_type="Golden Spiral"):
         """Draws specified composition guide over image."""
         canvas = self.img.copy()
@@ -189,72 +246,18 @@ class PhotoMentor:
                 cv2.line(canvas, (i * w_step, 0), (i * w_step, self.height), color, thickness)
 
         elif guide_type in ("Golden Spiral", "Golden Ratio"):
-            # Golden Spiral (Fibonacci Spiral)
-            x, y, w, h = 0, 0, self.width, self.height
-            phi = 1.61803398875
-
-            # Recursively subdivide golden rectangles and draw arcs
-            # Directions: 0=Left arc, 1=Top arc, 2=Right arc, 3=Bottom arc
-            direction = 0
-            for _ in range(8):
-                if w <= 2 or h <= 2:
-                    break
-
-                if direction == 0:  # Cut square from left
-                    square_dim = int(h)
-                    if square_dim > w: square_dim = w
-                    # Draw square bounding box
-                    cv2.rectangle(canvas, (x, y), (x + square_dim, y + h), color, 1)
-                    # Draw Golden Arc
-                    center = (x + square_dim, y + h)
-                    cv2.ellipse(canvas, center, (square_dim, h), 0, 180, 270, color, thickness)
-                    x += square_dim
-                    w -= square_dim
-
-                elif direction == 1:  # Cut square from top
-                    square_dim = int(w)
-                    if square_dim > h: square_dim = h
-                    cv2.rectangle(canvas, (x, y), (x + w, y + square_dim), color, 1)
-                    center = (x, y + square_dim)
-                    cv2.ellipse(canvas, center, (w, square_dim), 0, 270, 360, color, thickness)
-                    y += square_dim
-                    h -= square_dim
-
-                elif direction == 2:  # Cut square from right
-                    square_dim = int(h)
-                    if square_dim > w: square_dim = w
-                    cv2.rectangle(canvas, (x + w - square_dim, y), (x + w, y + h), color, 1)
-                    center = (x + w - square_dim, y)
-                    cv2.ellipse(canvas, center, (square_dim, h), 0, 0, 90, color, thickness)
-                    w -= square_dim
-
-                elif direction == 3:  # Cut square from bottom
-                    square_dim = int(w)
-                    if square_dim > h: square_dim = h
-                    cv2.rectangle(canvas, (x, y + h - square_dim), (x + w, y + h), color, 1)
-                    center = (x + w, y + h - square_dim)
-                    cv2.ellipse(canvas, center, (w, square_dim), 0, 90, 180, color, thickness)
-                    h -= square_dim
-
-                direction = (direction + 1) % 4
+            self._draw_golden_spiral(canvas, color, thickness)
 
         elif guide_type == "Golden Triangles":
-            # Main diagonal line from bottom-left to top-right
             cv2.line(canvas, (0, self.height), (self.width, 0), color, thickness)
-
-            # Perpendicular lines meeting main diagonal at 90 degrees
             w_sq = float(self.width ** 2)
             h_sq = float(self.height ** 2)
             denom = w_sq + h_sq
 
-            # Projection point from top-left (0, 0) onto diagonal
             x_p1 = int((self.width * h_sq) / denom)
             y_p1 = int((w_sq * self.height) / denom)
 
-            # Draw perpendicular line from top-left to diagonal
             cv2.line(canvas, (0, 0), (x_p1, y_p1), color, thickness)
-
-            # Draw perpendicular line from bottom-right to diagonal
             cv2.line(canvas, (self.width, self.height), (self.width - x_p1, self.height - y_p1), color, thickness)
 
         elif guide_type == "Golden Ratio Grid":
