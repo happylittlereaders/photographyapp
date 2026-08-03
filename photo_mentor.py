@@ -110,10 +110,10 @@ class PhotoMentor:
         """Uses variance of Laplacian to evaluate focus and blur."""
         sharpness = cv2.Laplacian(self.gray, cv2.CV_64F).var()
 
-        if sharpness < 100:
+        if sharpness < 40:
             grade = "Possibly blurry"
             advice = "Detail looks soft. Applying subtle unsharp masking will enhance key edges."
-        elif sharpness < 500:
+        elif sharpness < 250:
             grade = "Acceptably sharp"
             advice = "Sharpness is reasonable for most uses."
         else:
@@ -123,10 +123,17 @@ class PhotoMentor:
         return grade, advice, sharpness
 
     def fix_sharpness(self, img_bgr=None):
-        """Applies unsharp masking filter to sharpen image."""
+        """Applies gentle unsharp masking filter only if photo requires sharpening."""
         src = self.img if img_bgr is None else img_bgr
-        blurred = cv2.GaussianBlur(src, (0, 0), 3)
-        return cv2.addWeighted(src, 1.5, blurred, -0.5, 0)
+        grade, _, _ = self.analyze_sharpness()
+
+        # If already sharp, return copy without adding extra sharpness
+        if grade != "Possibly blurry":
+            return src.copy()
+
+        # Subtle unsharp mask (1.15 / -0.15 weight factor instead of harsh 1.5 / -0.5)
+        blurred = cv2.GaussianBlur(src, (0, 0), 2.0)
+        return cv2.addWeighted(src, 1.15, blurred, -0.15, 0)
 
     # ------------------------------------------------------------------
     # 4. Color Saturation
@@ -184,11 +191,9 @@ class PhotoMentor:
         img_aspect = self.width / self.height
 
         if img_aspect >= phi:
-            # Image is wider than golden ratio -> constrain by height
             rect_h = self.height
             rect_w = int(rect_h * phi)
         else:
-            # Image is narrower than golden ratio -> constrain by width
             rect_w = self.width
             rect_h = int(rect_w / phi)
 
@@ -214,21 +219,15 @@ class PhotoMentor:
                 break
 
             if state == 0:  # Cut square on Left
-                s = h
-                if s > w:
-                    s = w
-                # Line divider
+                s = min(h, w)
                 cv2.line(canvas, (x + s, y), (x + s, y + h), color, 1)
-                # Quarter-circle arc from top-left to bottom-right corner of square
                 center = (x + s, y + h)
                 cv2.ellipse(canvas, center, (s, s), 0, 180, 270, color, thickness)
                 x += s
                 w -= s
 
             elif state == 1:  # Cut square on Top
-                s = w
-                if s > h:
-                    s = h
+                s = min(w, h)
                 cv2.line(canvas, (x, y + s), (x + w, y + s), color, 1)
                 center = (x, y + s)
                 cv2.ellipse(canvas, center, (s, s), 0, 270, 360, color, thickness)
@@ -236,18 +235,14 @@ class PhotoMentor:
                 h -= s
 
             elif state == 2:  # Cut square on Right
-                s = h
-                if s > w:
-                    s = w
+                s = min(h, w)
                 cv2.line(canvas, (x + w - s, y), (x + w - s, y + h), color, 1)
                 center = (x + w - s, y)
                 cv2.ellipse(canvas, center, (s, s), 0, 0, 90, color, thickness)
                 w -= s
 
             elif state == 3:  # Cut square on Bottom
-                s = w
-                if s > h:
-                    s = h
+                s = min(w, h)
                 cv2.line(canvas, (x, y + h - s), (x + w, y + h - s), color, 1)
                 center = (x + w, y + h - s)
                 cv2.ellipse(canvas, center, (s, s), 0, 90, 180, color, thickness)
