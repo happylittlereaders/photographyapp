@@ -1,26 +1,30 @@
 """
 photo_mentor.py
 ----------------
-Core image-analysis engine for Golden Number.
+A starter "AI photography mentor" script.
 
-Given a photo, PhotoMentor can:
-  1. Diagnose exposure, composition (horizon tilt), sharpness, and color
-     saturation.
-  2. Draw composition guide overlays: Rule of Thirds, Golden Ratio Grid,
-     Golden Triangle, and Golden Spiral.
-  3. Auto-correct each flaw individually (for before/after comparisons).
-  4. Produce one final image with every needed correction applied.
+Given a photo, it analyzes:
+  1. Exposure (is it too bright / too dark?)
+  2. Composition (is the horizon tilted?)
+  3. Sharpness (is it blurry?)
+  4. Color saturation (are colors washed out or oversaturated?)
+
+...and prints a plain-English diagnostic report.
+
+Usage:
+    python photo_mentor.py path/to/photo.jpg
+
+Install dependencies first:
+    pip install opencv-python numpy
 """
 
+import sys
 import cv2
 import numpy as np
 
-# Brand color (#dcc86f) as BGR, since OpenCV uses BGR ordering
-GUIDE_COLOR_BGR = (111, 200, 220)
-
 
 class PhotoMentor:
-    """Runs a set of computer-vision checks and corrections on a single photo."""
+    """Runs a set of computer-vision checks on a single photo."""
 
     def __init__(self, image_path: str):
         self.image_path = image_path
@@ -35,13 +39,14 @@ class PhotoMentor:
         self.hsv = cv2.cvtColor(self.img, cv2.COLOR_BGR2HSV)
         self.height, self.width = self.gray.shape
 
-    # ==================================================================
-    # DIAGNOSTICS
-    # ==================================================================
-
+    # ------------------------------------------------------------------
+    # 1. Exposure
+    # ------------------------------------------------------------------
     def analyze_exposure(self):
-        """Returns (grade, advice, avg_brightness)."""
+        """Returns (grade, advice) based on average brightness and highlight clipping."""
         avg_brightness = float(np.mean(self.gray))
+
+        # Fraction of pixels that are essentially blown-out white (0.0 - 1.0)
         overexposed_ratio = float(np.sum(self.gray > 240)) / self.gray.size
 
         if overexposed_ratio > 0.10:
@@ -59,8 +64,11 @@ class PhotoMentor:
 
         return grade, advice, avg_brightness
 
+    # ------------------------------------------------------------------
+    # 2. Composition (horizon tilt)
+    # ------------------------------------------------------------------
     def analyze_composition(self):
-        """Returns (grade, advice, tilt_degrees)."""
+        """Detects dominant near-horizontal lines and estimates tilt angle."""
         edges = cv2.Canny(self.gray, 50, 150)
         lines = cv2.HoughLinesP(
             edges, 1, np.pi / 180, threshold=100,
@@ -72,6 +80,7 @@ class PhotoMentor:
             for line in lines:
                 x1, y1, x2, y2 = line[0]
                 angle = np.degrees(np.arctan2(y2 - y1, x2 - x1))
+                # Only consider lines that are roughly horizontal (candidates for a horizon)
                 if 1 < abs(angle) < 20 and abs(angle) > abs(max_tilt):
                     max_tilt = angle
 
@@ -85,8 +94,11 @@ class PhotoMentor:
 
         return grade, advice, max_tilt
 
+    # ------------------------------------------------------------------
+    # 3. Sharpness
+    # ------------------------------------------------------------------
     def analyze_sharpness(self):
-        """Returns (grade, advice, sharpness_score)."""
+        """Uses the variance of the Laplacian as a focus/blur measure."""
         sharpness = cv2.Laplacian(self.gray, cv2.CV_64F).var()
 
         if sharpness < 100:
@@ -101,8 +113,11 @@ class PhotoMentor:
 
         return grade, advice, sharpness
 
+    # ------------------------------------------------------------------
+    # 4. Color saturation
+    # ------------------------------------------------------------------
     def analyze_saturation(self):
-        """Returns (grade, advice, avg_saturation)."""
+        """Checks average saturation in HSV space."""
         avg_saturation = float(np.mean(self.hsv[:, :, 1]))
 
         if avg_saturation < 30:
@@ -117,6 +132,9 @@ class PhotoMentor:
 
         return grade, advice, avg_saturation
 
+    # ------------------------------------------------------------------
+    # Full report
+    # ------------------------------------------------------------------
     def full_report(self):
         exp_grade, exp_advice, brightness = self.analyze_exposure()
         comp_grade, comp_advice, tilt = self.analyze_composition()
@@ -125,7 +143,7 @@ class PhotoMentor:
 
         report_lines = [
             "=" * 50,
-            "Golden Number — Diagnostic Report",
+            f"AI Photography Mentor — Diagnostic Report",
             f"File: {self.image_path}",
             "=" * 50,
             "",
@@ -144,213 +162,40 @@ class PhotoMentor:
         ]
         return "\n".join(report_lines)
 
-    # ==================================================================
-    # COMPOSITION GUIDE OVERLAYS
-    # ==================================================================
-
-    @staticmethod
-    def _draw_guide_line(canvas, pt1, pt2, thickness=2):
-        """Draws a line with a subtle dark outline so it's visible on any background."""
-        cv2.line(canvas, pt1, pt2, (0, 0, 0), thickness + 2, cv2.LINE_AA)
-        cv2.line(canvas, pt1, pt2, GUIDE_COLOR_BGR, thickness, cv2.LINE_AA)
-
-    @staticmethod
-    def _draw_guide_arc(canvas, center, radius, start_angle, end_angle, thickness=2):
-        cv2.ellipse(canvas, center, (radius, radius), 0, start_angle, end_angle,
-                    (0, 0, 0), thickness + 2, cv2.LINE_AA)
-        cv2.ellipse(canvas, center, (radius, radius), 0, start_angle, end_angle,
-                    GUIDE_COLOR_BGR, thickness, cv2.LINE_AA)
-
     def draw_rule_of_thirds(self):
-        """Classic rule-of-thirds grid: divides the frame into equal thirds."""
+        """Returns a copy of the image with rule-of-thirds gridlines drawn on it."""
         canvas = self.img.copy()
-        h_step = self.height / 3
-        w_step = self.width / 3
+        h_step = self.height // 3
+        w_step = self.width // 3
+        color = (255, 255, 0)  # cyan in BGR
+        thickness = 2
         for i in (1, 2):
-            y = int(i * h_step)
-            x = int(i * w_step)
-            self._draw_guide_line(canvas, (0, y), (self.width, y))
-            self._draw_guide_line(canvas, (x, 0), (x, self.height))
+            cv2.line(canvas, (0, i * h_step), (self.width, i * h_step), color, thickness)
+            cv2.line(canvas, (i * w_step, 0), (i * w_step, self.height), color, thickness)
         return canvas
 
-    def draw_golden_ratio_grid(self):
-        """Like rule of thirds, but divided at the golden ratio (~38.2% / 61.8%)."""
-        canvas = self.img.copy()
-        for frac in (0.382, 0.618):
-            y = int(self.height * frac)
-            x = int(self.width * frac)
-            self._draw_guide_line(canvas, (0, y), (self.width, y))
-            self._draw_guide_line(canvas, (x, 0), (x, self.height))
-        return canvas
 
-    @staticmethod
-    def _foot_of_perpendicular(point, line_a, line_b):
-        """Projects `point` onto the line through line_a/line_b and returns the foot."""
-        a = np.array(line_a, dtype=float)
-        b = np.array(line_b, dtype=float)
-        p = np.array(point, dtype=float)
-        ab = b - a
-        t = np.dot(p - a, ab) / np.dot(ab, ab)
-        foot = a + t * ab
-        return (int(foot[0]), int(foot[1]))
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: python photo_mentor.py path/to/photo.jpg")
+        sys.exit(1)
 
-    def draw_golden_triangle(self, variant="tl-br"):
-        """
-        Golden triangle guide: a diagonal across the frame plus two lines
-        dropped perpendicular from the other corners onto that diagonal.
+    image_path = sys.argv[1]
 
-        variant: "tl-br" (diagonal from top-left to bottom-right) or
-                 "tr-bl" (diagonal from top-right to bottom-left)
-        """
-        canvas = self.img.copy()
-        w, h = self.width, self.height
+    try:
+        mentor = PhotoMentor(image_path)
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
 
-        if variant == "tr-bl":
-            a, b = (w, 0), (0, h)
-            others = [(0, 0), (w, h)]
-        else:
-            a, b = (0, 0), (w, h)
-            others = [(w, 0), (0, h)]
+    print(mentor.full_report())
 
-        self._draw_guide_line(canvas, a, b)
-        for corner in others:
-            foot = self._foot_of_perpendicular(corner, a, b)
-            self._draw_guide_line(canvas, corner, foot)
+    # Optional: save a version of the photo with rule-of-thirds guide lines
+    preview = mentor.draw_rule_of_thirds()
+    output_path = "rule_of_thirds_preview.jpg"
+    cv2.imwrite(output_path, preview)
+    print(f"\nSaved a rule-of-thirds guide overlay to: {output_path}")
 
-        return canvas
 
-    def draw_golden_spiral(self, iterations=9):
-        """
-        Golden (Fibonacci) spiral: repeatedly cuts the largest possible square
-        from the current rectangle and draws a quarter-circle arc in it.
-        """
-        canvas = self.img.copy()
-        x, y, cw, ch = 0, 0, self.width, self.height
-        direction = 0
-
-        for _ in range(iterations):
-            side = min(cw, ch)
-            if side < 8:
-                break
-
-            if direction == 0:
-                sq_x, sq_y = x, y
-                x += side
-                cw -= side
-                center = (sq_x + side, sq_y + side)
-                start, end = 180, 270
-            elif direction == 1:
-                sq_x, sq_y = x, y
-                y += side
-                ch -= side
-                center = (sq_x, sq_y + side)
-                start, end = 270, 360
-            elif direction == 2:
-                sq_x, sq_y = x + cw - side, y
-                cw -= side
-                center = (sq_x, sq_y)
-                start, end = 0, 90
-            else:
-                sq_x, sq_y = x, y + ch - side
-                ch -= side
-                center = (sq_x + side, sq_y)
-                start, end = 90, 180
-
-            self._draw_guide_arc(canvas, center, side, start, end)
-            direction = (direction + 1) % 4
-
-        return canvas
-
-    GUIDE_OPTIONS = {
-        "Rule of Thirds": "draw_rule_of_thirds",
-        "Golden Ratio Grid": "draw_golden_ratio_grid",
-        "Golden Triangle": "draw_golden_triangle",
-        "Golden Spiral": "draw_golden_spiral",
-    }
-
-    def draw_guide(self, name, **kwargs):
-        """Dispatch helper: draw_guide('Golden Triangle', variant='tr-bl')."""
-        method_name = self.GUIDE_OPTIONS.get(name)
-        if method_name is None:
-            raise ValueError(f"Unknown guide: {name}")
-        return getattr(self, method_name)(**kwargs)
-
-    # ==================================================================
-    # AUTO-CORRECTIONS (for before/after comparisons)
-    # ==================================================================
-
-    def fix_exposure(self, source=None):
-        """Contrast-corrects and rebalances brightness toward a mid-gray target."""
-        working = self.img.copy() if source is None else source.copy()
-
-        lab = cv2.cvtColor(working, cv2.COLOR_BGR2LAB)
-        l_channel, a_channel, b_channel = cv2.split(lab)
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        l_channel = clahe.apply(l_channel)
-        working = cv2.cvtColor(cv2.merge((l_channel, a_channel, b_channel)), cv2.COLOR_LAB2BGR)
-
-        avg_brightness = float(np.mean(cv2.cvtColor(working, cv2.COLOR_BGR2GRAY)))
-        beta = float(np.clip(130 - avg_brightness, -80, 80))
-        working = cv2.convertScaleAbs(working, alpha=1.0, beta=beta)
-        return working
-
-    def fix_composition(self, source=None):
-        """Rotates the image to level a tilted horizon."""
-        working = self.img.copy() if source is None else source.copy()
-        _, _, tilt = self.analyze_composition()
-
-        if abs(tilt) < 0.5:
-            return working
-
-        center = (self.width // 2, self.height // 2)
-        rotation_matrix = cv2.getRotationMatrix2D(center, tilt, 1.0)
-        working = cv2.warpAffine(
-            working, rotation_matrix, (self.width, self.height),
-            borderMode=cv2.BORDER_REPLICATE
-        )
-        return working
-
-    def fix_sharpness(self, source=None):
-        """Applies an unsharp mask to recover perceived detail."""
-        working = self.img.copy() if source is None else source.copy()
-        blurred = cv2.GaussianBlur(working, (0, 0), sigmaX=3)
-        working = cv2.addWeighted(working, 1.5, blurred, -0.5, 0)
-        return working
-
-    def fix_saturation(self, source=None):
-        """Scales color saturation toward a natural target level."""
-        working = self.img.copy() if source is None else source.copy()
-        hsv = cv2.cvtColor(working, cv2.COLOR_BGR2HSV).astype(np.float32)
-        avg_sat = float(np.mean(hsv[:, :, 1]))
-
-        target = 120.0
-        scale = 1.0 if avg_sat < 1 else float(np.clip(target / avg_sat, 0.5, 2.0))
-        hsv[:, :, 1] = np.clip(hsv[:, :, 1] * scale, 0, 255)
-        working = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2BGR)
-        return working
-
-    def generate_final_image(self):
-        """
-        Applies every correction that's actually needed, in sequence, and
-        returns one fully touched-up image.
-        """
-        working = self.img.copy()
-
-        exp_grade, _, _ = self.analyze_exposure()
-        comp_grade, _, _ = self.analyze_composition()
-        sharp_grade, _, _ = self.analyze_sharpness()
-        sat_grade, _, _ = self.analyze_saturation()
-
-        if comp_grade == "Tilted":
-            working = self.fix_composition(source=working)
-
-        if exp_grade in ("Overexposed", "Underexposed"):
-            working = self.fix_exposure(source=working)
-
-        if sharp_grade == "Possibly blurry":
-            working = self.fix_sharpness(source=working)
-
-        if sat_grade in ("Washed out", "Oversaturated"):
-            working = self.fix_saturation(source=working)
-
-        return working
+if __name__ == "__main__":
+    main()
