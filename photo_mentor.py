@@ -26,7 +26,7 @@ class PhotoMentor:
         self.height, self.width = self.gray.shape
 
     # ------------------------------------------------------------------
-    # 1. Exposure (Very Subtle Adjustment)
+    # 1. Exposure (Balanced & Natural)
     # ------------------------------------------------------------------
     def analyze_exposure(self):
         """Returns (grade, advice, avg_brightness) based on brightness & clipping."""
@@ -39,7 +39,7 @@ class PhotoMentor:
         elif avg_brightness < 60:
             grade = "Underexposed"
             advice = "The image is quite dark. Brightening shadows and midtones will uncover hidden details."
-        elif 80 <= avg_brightness <= 180:
+        elif 100 <= avg_brightness <= 160:
             grade = "Well exposed"
             advice = "Brightness is well balanced, with good detail in both shadows and highlights."
         else:
@@ -49,22 +49,19 @@ class PhotoMentor:
         return grade, advice, avg_brightness
 
     def fix_exposure(self, img_bgr=None):
-        """Applies a minimal gamma nudge to gently lift or lower exposure."""
+        """Applies a smooth, moderate gamma curve to visibly improve exposure naturally."""
         src = self.img if img_bgr is None else img_bgr
-        _, _, avg_brightness = self.analyze_exposure()
+        avg_brightness = float(np.mean(cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)))
 
-        # If image brightness falls within a healthy 80-180 range, leave untouched
-        if 80 <= avg_brightness <= 180:
-            return src.copy()
-
-        if avg_brightness < 1:
-            avg_brightness = 1
-
+        # Target a natural midtone brightness ~128
         target_brightness = 128.0
-        # Very tight gamma limits (0.90 to 1.10) for minimal shift
-        gamma = np.clip(target_brightness / avg_brightness, 0.90, 1.10)
+        if avg_brightness < 1.0:
+            avg_brightness = 1.0
 
-        # Build gamma lookup table
+        # Gentle gamma curve bounded between 0.80 and 1.20
+        gamma = np.clip(target_brightness / avg_brightness, 0.80, 1.20)
+
+        # Build lookup table for smooth tone mapping
         inv_gamma = 1.0 / gamma
         table = np.array(
             [((i / 255.0) ** inv_gamma) * 255 for i in np.arange(0, 256)]
@@ -72,8 +69,8 @@ class PhotoMentor:
 
         adjusted = cv2.LUT(src, table)
 
-        # Very light blend: 75% original + 25% subtle adjustment
-        return cv2.addWeighted(src, 0.75, adjusted, 0.25, 0)
+        # Blend 60% original + 40% adjustment for a natural, visible polish
+        return cv2.addWeighted(src, 0.60, adjusted, 0.40, 0)
 
     # ------------------------------------------------------------------
     # 2. Composition (Horizon Tilt)
