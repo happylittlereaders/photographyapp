@@ -1,7 +1,8 @@
 """
 photo_mentor.py
 ----------------
-Core analysis, composition guides, and image correction logic.
+Core analysis, composition guides (including Golden Spiral & Golden Triangles),
+and auto-correction algorithms.
 """
 
 import cv2
@@ -48,7 +49,7 @@ class PhotoMentor:
         return grade, advice, avg_brightness
 
     def fix_exposure(self, img_bgr=None):
-        """Applies CLAHE (Contrast Limited Adaptive Histogram Equalization) to balance exposure."""
+        """Applies CLAHE to balance exposure."""
         src = self.img if img_bgr is None else img_bgr
         lab = cv2.cvtColor(src, cv2.COLOR_BGR2LAB)
         l_channel, a_channel, b_channel = cv2.split(lab)
@@ -162,7 +163,7 @@ class PhotoMentor:
         return cv2.cvtColor(fixed_hsv, cv2.COLOR_HSV2BGR)
 
     # ------------------------------------------------------------------
-    # Master Fixed Image
+    # Master Fixed Output
     # ------------------------------------------------------------------
     def generate_master_fixed_image(self):
         """Applies all available fixes sequentially."""
@@ -175,10 +176,10 @@ class PhotoMentor:
     # ------------------------------------------------------------------
     # Composition Overlays
     # ------------------------------------------------------------------
-    def draw_composition_guide(self, guide_type="Rule of Thirds"):
-        """Draws specified composition grid or guide over image."""
+    def draw_composition_guide(self, guide_type="Golden Spiral"):
+        """Draws specified composition guide over image."""
         canvas = self.img.copy()
-        color = (111, 200, 220)  # Hex #dcc86f in BGR format
+        color = (111, 200, 220)  # Hex #dcc86f in BGR
         thickness = 2
 
         if guide_type == "Rule of Thirds":
@@ -187,7 +188,76 @@ class PhotoMentor:
                 cv2.line(canvas, (0, i * h_step), (self.width, i * h_step), color, thickness)
                 cv2.line(canvas, (i * w_step, 0), (i * w_step, self.height), color, thickness)
 
-        elif guide_type == "Golden Ratio":
+        elif guide_type in ("Golden Spiral", "Golden Ratio"):
+            # Golden Spiral (Fibonacci Spiral)
+            x, y, w, h = 0, 0, self.width, self.height
+            phi = 1.61803398875
+
+            # Recursively subdivide golden rectangles and draw arcs
+            # Directions: 0=Left arc, 1=Top arc, 2=Right arc, 3=Bottom arc
+            direction = 0
+            for _ in range(8):
+                if w <= 2 or h <= 2:
+                    break
+
+                if direction == 0:  # Cut square from left
+                    square_dim = int(h)
+                    if square_dim > w: square_dim = w
+                    # Draw square bounding box
+                    cv2.rectangle(canvas, (x, y), (x + square_dim, y + h), color, 1)
+                    # Draw Golden Arc
+                    center = (x + square_dim, y + h)
+                    cv2.ellipse(canvas, center, (square_dim, h), 0, 180, 270, color, thickness)
+                    x += square_dim
+                    w -= square_dim
+
+                elif direction == 1:  # Cut square from top
+                    square_dim = int(w)
+                    if square_dim > h: square_dim = h
+                    cv2.rectangle(canvas, (x, y), (x + w, y + square_dim), color, 1)
+                    center = (x, y + square_dim)
+                    cv2.ellipse(canvas, center, (w, square_dim), 0, 270, 360, color, thickness)
+                    y += square_dim
+                    h -= square_dim
+
+                elif direction == 2:  # Cut square from right
+                    square_dim = int(h)
+                    if square_dim > w: square_dim = w
+                    cv2.rectangle(canvas, (x + w - square_dim, y), (x + w, y + h), color, 1)
+                    center = (x + w - square_dim, y)
+                    cv2.ellipse(canvas, center, (square_dim, h), 0, 0, 90, color, thickness)
+                    w -= square_dim
+
+                elif direction == 3:  # Cut square from bottom
+                    square_dim = int(w)
+                    if square_dim > h: square_dim = h
+                    cv2.rectangle(canvas, (x, y + h - square_dim), (x + w, y + h), color, 1)
+                    center = (x + w, y + h - square_dim)
+                    cv2.ellipse(canvas, center, (w, square_dim), 0, 90, 180, color, thickness)
+                    h -= square_dim
+
+                direction = (direction + 1) % 4
+
+        elif guide_type == "Golden Triangles":
+            # Main diagonal line from bottom-left to top-right
+            cv2.line(canvas, (0, self.height), (self.width, 0), color, thickness)
+
+            # Perpendicular lines meeting main diagonal at 90 degrees
+            w_sq = float(self.width ** 2)
+            h_sq = float(self.height ** 2)
+            denom = w_sq + h_sq
+
+            # Projection point from top-left (0, 0) onto diagonal
+            x_p1 = int((self.width * h_sq) / denom)
+            y_p1 = int((w_sq * self.height) / denom)
+
+            # Draw perpendicular line from top-left to diagonal
+            cv2.line(canvas, (0, 0), (x_p1, y_p1), color, thickness)
+
+            # Draw perpendicular line from bottom-right to diagonal
+            cv2.line(canvas, (self.width, self.height), (self.width - x_p1, self.height - y_p1), color, thickness)
+
+        elif guide_type == "Golden Ratio Grid":
             phi = 1.618
             w_ratio = int(self.width / (1 + phi))
             h_ratio = int(self.height / (1 + phi))
@@ -205,13 +275,5 @@ class PhotoMentor:
             cv2.line(canvas, (x2, 0), (x2, self.height), color, thickness)
             cv2.line(canvas, (0, y1), (self.width, y1), color, thickness)
             cv2.line(canvas, (0, y2), (self.width, y2), color, thickness)
-
-        elif guide_type == "Golden Triangles":
-            cv2.line(canvas, (0, self.height), (self.width, 0), color, thickness)
-            x_proj1 = int(self.width * (self.height**2) / (self.width**2 + self.height**2))
-            y_proj1 = int(self.height - (self.height * (x_proj1 / self.width)))
-
-            cv2.line(canvas, (0, 0), (self.width - x_proj1, y_proj1), color, thickness)
-            cv2.line(canvas, (self.width, self.height), (x_proj1, self.height - y_proj1), color, thickness)
 
         return canvas
