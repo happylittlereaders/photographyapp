@@ -2,7 +2,7 @@
 photo_mentor.py
 ----------------
 Core analysis, composition guides (Golden Spiral, Golden Triangles, etc.),
-and image correction logic.
+and image correction logic with two-way auto-fixing for exposure and saturation.
 """
 
 import cv2
@@ -26,42 +26,50 @@ class PhotoMentor:
         self.height, self.width = self.gray.shape
 
     # ------------------------------------------------------------------
-    # 1. Exposure (Balanced & Natural)
+    # 1. Exposure (Two-way: Brightens darks & Darkens brights)
     # ------------------------------------------------------------------
     def analyze_exposure(self):
         """Returns (grade, advice, avg_brightness) based on brightness & clipping."""
         avg_brightness = float(np.mean(self.gray))
         overexposed_ratio = float(np.sum(self.gray > 240)) / self.gray.size
 
-        if overexposed_ratio > 0.10:
+        if overexposed_ratio > 0.10 or avg_brightness > 170:
             grade = "Overexposed"
-            advice = "Highlights are clipped in a large part of the frame. Lowering exposure helps restore lost detail."
+            advice = "Highlights are clipped or too bright. Lowering exposure restores highlight detail."
         elif avg_brightness < 60:
             grade = "Underexposed"
-            advice = "The image is quite dark. Brightening shadows and midtones will uncover hidden details."
+            advice = "The image is quite dark. Brightening shadows and midtones uncovers hidden details."
         elif 100 <= avg_brightness <= 160:
             grade = "Well exposed"
             advice = "Brightness is well balanced, with good detail in both shadows and highlights."
         else:
             grade = "Acceptable exposure"
-            advice = "Exposure is reasonable, but contrast and midtone balancing can improve it."
+            advice = "Exposure is reasonable, but subtle tone mapping can balance it further."
 
         return grade, advice, avg_brightness
 
     def fix_exposure(self, img_bgr=None):
-        """Applies a smooth, moderate gamma curve to visibly improve exposure naturally."""
+        """Applies gamma correction to brighten underexposed photos or darken overexposed ones."""
         src = self.img if img_bgr is None else img_bgr
-        avg_brightness = float(np.mean(cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)))
+        gray_src = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
+        avg_brightness = float(np.mean(gray_src))
+        overexposed_ratio = float(np.sum(gray_src > 240)) / gray_src.size
 
-        # Target a natural midtone brightness ~128
-        target_brightness = 128.0
+        # Determine dynamic target brightness
+        if overexposed_ratio > 0.10:
+            target_brightness = 110.0  # Darken more aggressively if highlights are clipped
+        else:
+            target_brightness = 128.0  # Standard midtone balance
+
         if avg_brightness < 1.0:
             avg_brightness = 1.0
 
-        # Gentle gamma curve bounded between 0.80 and 1.20
-        gamma = np.clip(target_brightness / avg_brightness, 0.80, 1.20)
+        # Calculate gamma:
+        # avg_brightness < target => gamma in [0.80, 1.0) -> Brightens
+        # avg_brightness > target => gamma in (1.0, 1.25] -> Darkens
+        gamma = np.clip(target_brightness / avg_brightness, 0.80, 1.25)
 
-        # Build lookup table for smooth tone mapping
+        # Build lookup table
         inv_gamma = 1.0 / gamma
         table = np.array(
             [((i / 255.0) ** inv_gamma) * 255 for i in np.arange(0, 256)]
@@ -69,7 +77,7 @@ class PhotoMentor:
 
         adjusted = cv2.LUT(src, table)
 
-        # Blend 60% original + 40% adjustment for a natural, visible polish
+        # Blend 60% original + 40% adjustment for a natural look
         return cv2.addWeighted(src, 0.60, adjusted, 0.40, 0)
 
     # ------------------------------------------------------------------
@@ -78,8 +86,6 @@ class PhotoMentor:
     def analyze_composition(self):
         """Detects dominant near-horizontal lines and estimates tilt angle."""
         edges = cv2.Canny(self.gray, 50, 150)
-
-        # Dynamic line length handles horizontal, vertical (portrait), and non-standard ratios
         min_length = max(1, min(self.width, self.height) // 4)
 
         lines = cv2.HoughLinesP(
@@ -90,7 +96,6 @@ class PhotoMentor:
         max_tilt = 0.0
         if lines is not None:
             for line in lines:
-                # .ravel() safely flattens array regardless of shape (1, 4) vs (4,)
                 x1, y1, x2, y2 = line.ravel()
                 angle = np.degrees(np.arctan2(y2 - y1, x2 - x1))
                 if 1 < abs(angle) < 20 and abs(angle) > abs(max_tilt):
@@ -151,7 +156,7 @@ class PhotoMentor:
         return cv2.addWeighted(src, 1.15, blurred, -0.15, 0)
 
     # ------------------------------------------------------------------
-    # 4. Color Saturation
+    # 4. Color Saturation (Two-way: Boosts pale & Desaturates vivid)
     # ------------------------------------------------------------------
     def analyze_saturation(self):
         """Checks average saturation in HSV space."""
@@ -160,9 +165,9 @@ class PhotoMentor:
         if avg_saturation < 30:
             grade = "Washed out"
             advice = "Colors look pale. Boosting saturation will make the photo feel more vivid."
-        elif avg_saturation > 200:
+        elif avg_saturation > 180:
             grade = "Oversaturated"
-            advice = "Colors are very intense. Tone down saturation slightly for a natural look."
+            advice = "Colors are very intense. Desaturating slightly produces a more natural look."
         else:
             grade = "Natural"
             advice = "Color intensity looks natural and well balanced."
@@ -170,16 +175,18 @@ class PhotoMentor:
         return grade, advice, avg_saturation
 
     def fix_saturation(self, img_bgr=None):
-        """Normalizes saturation towards healthy mean."""
+        """Boosts saturation if washed out or tones it down if oversaturated."""
         src = self.img if img_bgr is None else img_bgr
         hsv = cv2.cvtColor(src, cv2.COLOR_BGR2HSV)
         h, s, v = cv2.split(hsv)
 
         avg_sat = np.mean(s)
         if avg_sat < 30:
-            s = cv2.add(s, 20)
-        elif avg_sat > 200:
-            s = cv2.subtract(s, 20)
+            # Boost pale photos (+25 saturation)
+            s = cv2.add(s, 25)
+        elif avg_sat > 180:
+            # Reduce harsh/oversaturated photos (-30 saturation)
+            s = cv2.subtract(s, 30)
 
         fixed_hsv = cv2.merge((h, s, v))
         return cv2.cvtColor(fixed_hsv, cv2.COLOR_HSV2BGR)
