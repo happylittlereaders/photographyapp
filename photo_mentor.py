@@ -78,15 +78,20 @@ class PhotoMentor:
     def analyze_composition(self):
         """Detects dominant near-horizontal lines and estimates tilt angle."""
         edges = cv2.Canny(self.gray, 50, 150)
+
+        # Dynamic line length handles horizontal, vertical (portrait), and non-standard ratios
+        min_length = max(1, min(self.width, self.height) // 4)
+
         lines = cv2.HoughLinesP(
             edges, 1, np.pi / 180, threshold=100,
-            minLineLength=self.width // 4, maxLineGap=10
+            minLineLength=min_length, maxLineGap=10
         )
 
         max_tilt = 0.0
         if lines is not None:
             for line in lines:
-                x1, y1, x2, y2 = line[0]
+                # .ravel() safely flattens array regardless of shape (1, 4) vs (4,)
+                x1, y1, x2, y2 = line.ravel()
                 angle = np.degrees(np.arctan2(y2 - y1, x2 - x1))
                 if 1 < abs(angle) < 20 and abs(angle) > abs(max_tilt):
                     max_tilt = angle
