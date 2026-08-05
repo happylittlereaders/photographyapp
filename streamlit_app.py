@@ -2,7 +2,7 @@
 streamlit_app.py
 -----------------
 Web UI for "Golden Number" photography evaluation app.
-Features real-time camera viewfinder with geometrically accurate, non-distorting composition overlays.
+Features real-time camera viewfinder with mathematically accurate Golden Ratio overlays.
 """
 
 import streamlit as st
@@ -66,47 +66,50 @@ st.write(
 )
 
 # ---------------------------------------------------------------------
-# Helper: Precise Live Viewfinder Component (Fixed Geometry & Anti-Clipping)
+# Helper: Precise Live Viewfinder Component (Golden Ratio Aspect Frame)
 # ---------------------------------------------------------------------
 def render_live_viewfinder(guide_type="Golden Spiral"):
     """Generates a responsive HTML5 video stream with accurate composition overlay guides."""
     
     if guide_type == "Rule of Thirds":
         svg_content = """
-            <line x1="133.33" y1="0" x2="133.33" y2="247.2" stroke="#dcc86f" stroke-width="1" />
-            <line x1="266.66" y1="0" x2="266.66" y2="247.2" stroke="#dcc86f" stroke-width="1" />
-            <line x1="0" y1="82.4" x2="400" y2="82.4" stroke="#dcc86f" stroke-width="1" />
-            <line x1="0" y1="164.8" x2="400" y2="164.8" stroke="#dcc86f" stroke-width="1" />
+            <line x1="333.33" y1="0" x2="333.33" y2="618.03" stroke="#dcc86f" stroke-width="1" />
+            <line x1="666.66" y1="0" x2="666.66" y2="618.03" stroke="#dcc86f" stroke-width="1" />
+            <line x1="0" y1="206.01" x2="1000" y2="206.01" stroke="#dcc86f" stroke-width="1" />
+            <line x1="0" y1="412.02" x2="1000" y2="412.02" stroke="#dcc86f" stroke-width="1" />
         """
     elif guide_type == "Golden Triangles":
         svg_content = """
-            <line x1="0" y1="247.2" x2="400" y2="0" stroke="#dcc86f" stroke-width="1" />
-            <line x1="0" y1="0" x2="110.6" y2="178.9" stroke="#dcc86f" stroke-width="1" />
-            <line x1="400" y1="247.2" x2="289.4" y2="68.3" stroke="#dcc86f" stroke-width="1" />
+            <line x1="0" y1="618.03" x2="1000" y2="0" stroke="#dcc86f" stroke-width="1" />
+            <line x1="0" y1="0" x2="276.4" y2="447.2" stroke="#dcc86f" stroke-width="1" />
+            <line x1="1000" y1="618.03" x2="723.6" y2="170.8" stroke="#dcc86f" stroke-width="1" />
         """
     elif guide_type == "Golden Section":
         svg_content = """
-            <line x1="152.8" y1="0" x2="152.8" y2="247.2" stroke="#dcc86f" stroke-width="1" />
-            <line x1="247.2" y1="0" x2="247.2" y2="247.2" stroke="#dcc86f" stroke-width="1" />
-            <line x1="0" y1="94.4" x2="400" y2="94.4" stroke="#dcc86f" stroke-width="1" />
-            <line x1="0" y1="152.8" x2="400" y2="152.8" stroke="#dcc86f" stroke-width="1" />
+            <line x1="381.97" y1="0" x2="381.97" y2="618.03" stroke="#dcc86f" stroke-width="1" />
+            <line x1="618.03" y1="0" x2="618.03" y2="618.03" stroke="#dcc86f" stroke-width="1" />
+            <line x1="0" y1="236.07" x2="1000" y2="236.07" stroke="#dcc86f" stroke-width="1" />
+            <line x1="0" y1="381.97" x2="1000" y2="381.97" stroke="#dcc86f" stroke-width="1" />
         """
-    else:  # Default: Golden Spiral (Mathematically True Fibonacci Arc Chain)
+    else:  # Default: Golden Spiral (True 1000x618.034 Fibonacci Geometry)
         svg_content = """
-            <line x1="247.2" y1="0" x2="247.2" y2="247.2" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.5" />
-            <line x1="247.2" y1="152.8" x2="400" y2="152.8" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.5" />
-            <line x1="247.2" y1="152.8" x2="247.2" y2="247.2" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.5" />
-            <line x1="305.6" y1="152.8" x2="305.6" y2="247.2" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.5" />
-            <line x1="305.6" y1="188.8" x2="400" y2="188.8" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.5" />
+            <line x1="618.03" y1="0" x2="618.03" y2="618.03" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="4,4" opacity="0.4" />
+            <line x1="618.03" y1="381.97" x2="1000" y2="381.97" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="4,4" opacity="0.4" />
+            <line x1="763.93" y1="381.97" x2="763.93" y2="618.03" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="4,4" opacity="0.4" />
+            <line x1="618.03" y1="472.14" x2="763.93" y2="472.14" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="4,4" opacity="0.4" />
+            <line x1="708.20" y1="381.97" x2="708.20" y2="472.14" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="4,4" opacity="0.4" />
+            <line x1="708.20" y1="437.69" x2="763.93" y2="437.69" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="4,4" opacity="0.4" />
 
             <path d="
-                M 0,247.2 
-                A 247.2,247.2 0 0,1 247.2,0 
-                A 152.8,152.8 0 0,1 400,152.8 
-                A 94.4,94.4 0 0,1 305.6,247.2 
-                A 58.4,58.4 0 0,1 247.2,188.8 
-                A 36.0,36.0 0 0,1 283.2,152.8 
-                A 22.4,22.4 0 0,1 305.6,175.2
+                M 0,618.03 
+                A 618.03,618.03 0 0,1 618.03,0 
+                A 381.97,381.97 0 0,1 1000,381.97 
+                A 236.07,236.07 0 0,1 763.93,618.03 
+                A 145.90,145.90 0 0,1 618.03,472.14 
+                A 90.17,90.17 0 0,1 708.20,381.97 
+                A 55.73,55.73 0 0,1 763.93,437.69 
+                A 34.44,34.44 0 0,1 729.49,472.14 
+                A 21.29,21.29 0 0,1 708.20,450.85
             " fill="none" stroke="#dcc86f" stroke-width="1.5" vector-effect="non-scaling-stroke" />
         """
 
@@ -120,8 +123,9 @@ def render_live_viewfinder(guide_type="Golden Spiral"):
             .frame-wrapper {{
                 position: relative;
                 width: 100%;
-                max-width: 520px;
-                aspect-ratio: 4/3;
+                max-width: 560px;
+                /* Locked to Golden Ratio Aspect (1.618 : 1) */
+                aspect-ratio: 1.618 / 1;
                 margin: 0 auto;
                 border-radius: 8px;
                 overflow: hidden;
@@ -140,7 +144,6 @@ def render_live_viewfinder(guide_type="Golden Spiral"):
                 width: 100%;
                 height: 100%;
                 pointer-events: none;
-                object-fit: fill;
             }}
             .badge {{
                 position: absolute;
@@ -160,7 +163,7 @@ def render_live_viewfinder(guide_type="Golden Spiral"):
     <body>
         <div class="frame-wrapper">
             <video id="webcam" autoplay playsinline muted></video>
-            <svg viewBox="0 0 400 247.2" preserveAspectRatio="none">
+            <svg viewBox="0 0 1000 618.034" preserveAspectRatio="none">
                 {svg_content}
             </svg>
             <div class="badge">LIVE GUIDE: {guide_type.upper()}</div>
@@ -177,7 +180,7 @@ def render_live_viewfinder(guide_type="Golden Spiral"):
     </body>
     </html>
     """
-    components.html(viewfinder_html, height=410)
+    components.html(viewfinder_html, height=380)
 
 # ---------------------------------------------------------------------
 # Input: Camera Capture OR File Upload
