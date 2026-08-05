@@ -2,7 +2,7 @@
 streamlit_app.py
 -----------------
 Web UI for "Golden Number" photography evaluation app.
-Now supports direct camera capture for mobile users, in addition to file upload.
+Supports camera capture, active ratio overlay selections, and brand hex display.
 """
 
 import streamlit as st
@@ -15,9 +15,7 @@ from photo_mentor import PhotoMentor
 # Page Configuration
 st.set_page_config(page_title="Golden Number", page_icon="✨", layout="wide")
 
-# PWA support: links the manifest + service worker so the app is
-# installable to a phone home screen (requires enableStaticServing = true
-# in .streamlit/config.toml and the static/ folder committed to the repo).
+# PWA support
 st.markdown(
     """
     <link rel="manifest" href="/app/static/manifest.json">
@@ -37,6 +35,19 @@ st.markdown(
         color: #dcc86f;
         font-family: 'Helvetica Neue', sans-serif;
         font-weight: 700;
+        margin-bottom: 0px;
+    }
+    .hex-badge {
+        background-color: #dcc86f;
+        color: #0f0f0f;
+        font-weight: 800;
+        padding: 6px 14px;
+        border-radius: 20px;
+        display: inline-block;
+        font-size: 0.9rem;
+        letter-spacing: 1px;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 5px rgba(220, 200, 111, 0.3);
     }
     .highlight-border {
         border-left: 4px solid #dcc86f;
@@ -46,7 +57,6 @@ st.markdown(
     div.stButton > button:first-child {
         border-color: #dcc86f;
     }
-    /* Make tabs and buttons a bit larger/easier to tap on mobile */
     button[role="tab"] {
         font-size: 1rem;
         padding: 0.6rem 1rem;
@@ -57,13 +67,26 @@ st.markdown(
 )
 
 st.markdown("<h1 class='main-title'>✨ Golden Number</h1>", unsafe_allow_html=True)
+
+# Prominent Hex Display
+st.markdown("<div class='hex-badge'>THEME HEX: #DCC86F</div>", unsafe_allow_html=True)
+
 st.write(
     "Take a photo or upload one to run computer vision diagnostic checks, explore artistic guides "
     "(Golden Ratio, Triangles, Rule of Thirds), and preview step-by-step auto-fixes."
 )
 
+# Sidebar / Top-Level Composition Overlay Selector
+st.sidebar.title("📐 Live Overlay Settings")
+enable_live_overlay = st.sidebar.checkbox("Overlay ratio guide on input photo", value=True)
+selected_guide = st.sidebar.selectbox(
+    "Select Composition Ratio Guide",
+    ["Golden Spiral", "Rule of Thirds", "Golden Triangles", "Golden Section", "Golden Ratio Grid"],
+    index=0
+)
+
 # ---------------------------------------------------------------------
-# Input: camera capture (mobile-friendly) OR file upload
+# Input: camera capture OR file upload
 # ---------------------------------------------------------------------
 input_tab, upload_tab = st.tabs(["📷 Take Photo", "🖼️ Upload Photo"])
 
@@ -98,7 +121,7 @@ if captured_bytes is not None:
     sharp_grade, sharp_advice, sharpness = mentor.analyze_sharpness()
     sat_grade, sat_advice, saturation = mentor.analyze_saturation()
 
-    # Top Section: Original & Selected Composition Overlays
+    # Top Section: Original vs Overlay Preview
     st.subheader("1. Composition Overlay Guides")
     col1, col2 = st.columns([1, 1])
 
@@ -106,13 +129,12 @@ if captured_bytes is not None:
         st.image(pil_image, caption="Original Photo", use_container_width=True)
 
     with col2:
-        guide_selection = st.selectbox(
-            "Choose Composition Guide",
-            ["Rule of Thirds", "Golden Ratio", "Golden Triangles", "Golden Section"]
-        )
-        overlay_bgr = mentor.draw_composition_guide(guide_type=guide_selection)
-        overlay_rgb = cv2.cvtColor(overlay_bgr, cv2.COLOR_BGR2RGB)
-        st.image(overlay_rgb, caption=f"Guide Overlay: {guide_selection}", use_container_width=True)
+        if enable_live_overlay:
+            overlay_bgr = mentor.draw_composition_guide(guide_type=selected_guide)
+            overlay_rgb = cv2.cvtColor(overlay_bgr, cv2.COLOR_BGR2RGB)
+            st.image(overlay_rgb, caption=f"Photo with Overlay: {selected_guide}", use_container_width=True)
+        else:
+            st.image(pil_image, caption="Overlay Disabled", use_container_width=True)
 
     st.divider()
 
@@ -165,7 +187,7 @@ if captured_bytes is not None:
 
     # Master Output Section
     st.subheader("3. Master Corrected Result")
-    st.write("Below is the combined final output combining all individual corrections (Exposure, Leveling, Sharpening, Saturation Balancing).")
+    st.write("Below is the final output combining all individual corrections (Exposure, Leveling, Sharpening, Saturation Balancing).")
 
     master_fixed_bgr = mentor.generate_master_fixed_image()
     master_fixed_rgb = cv2.cvtColor(master_fixed_bgr, cv2.COLOR_BGR2RGB)
@@ -176,7 +198,7 @@ if captured_bytes is not None:
     with m_col2:
         st.image(master_fixed_rgb, caption="Final Corrected Image", use_container_width=True)
 
-    # Let the user download the corrected image straight to their phone
+    # Download Button
     success, encoded_img = cv2.imencode(".jpg", master_fixed_bgr)
     if success:
         st.download_button(
