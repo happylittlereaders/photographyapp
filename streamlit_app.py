@@ -11,6 +11,10 @@ import numpy as np
 import cv2
 from PIL import Image
 
+# Import module and force reload to avoid cached import errors
+import photo_mentor
+import importlib
+importlib.reload(photo_mentor)
 from photo_mentor import PhotoMentor
 
 # Page Configuration
@@ -73,7 +77,7 @@ PHOTOGRAPHER_PRESETS = {
         "aspect_ratio": "1.618 / 1",
         "viewbox": "0 0 1000 618.034",
         "default_guide": "Golden Spiral",
-        "description": "Standard golden ratio framing ($1.618:1$) with balanced, realistic post-processing.",
+        "description": "Standard golden ratio framing (1.618:1) with balanced, realistic post-processing.",
         "style_config": {
             "contrast_factor": 1.05,
             "saturation_factor": 1.1,
@@ -87,7 +91,7 @@ PHOTOGRAPHER_PRESETS = {
         "aspect_ratio": "4 / 3",
         "viewbox": "0 0 1000 750",
         "default_guide": "Rule of Thirds",
-        "description": "Humanist documentary pioneer ($4:3$ ratio). Deep B&W tonal gradation, lifted shadow detail, and storytelling focus.",
+        "description": "Humanist documentary pioneer (4:3 ratio). Deep B&W tonal gradation, lifted shadow detail, and storytelling focus.",
         "style_config": {
             "contrast_factor": 1.2,
             "saturation_factor": 0.0,
@@ -101,7 +105,7 @@ PHOTOGRAPHER_PRESETS = {
         "aspect_ratio": "1 / 1",
         "viewbox": "0 0 800 800",
         "default_guide": "Golden Section",
-        "description": "Iconic street portraitist ($1:1$ medium format Rolleiflex ratio). Punchy black & white with medium film grain.",
+        "description": "Iconic street portraitist (1:1 medium format Rolleiflex ratio). Punchy black & white with medium film grain.",
         "style_config": {
             "contrast_factor": 1.3,
             "saturation_factor": 0.0,
@@ -115,7 +119,7 @@ PHOTOGRAPHER_PRESETS = {
         "aspect_ratio": "3 / 2",
         "viewbox": "0 0 900 600",
         "default_guide": "Golden Section",
-        "description": "Dramatic editorial portraiture ($3:2$ ratio). Cinematic contrast, rich cool shadows, and high color depth.",
+        "description": "Dramatic editorial portraiture (3:2 ratio). Cinematic contrast, rich cool shadows, and high color depth.",
         "style_config": {
             "contrast_factor": 1.35,
             "saturation_factor": 1.25,
@@ -129,7 +133,7 @@ PHOTOGRAPHER_PRESETS = {
         "aspect_ratio": "3 / 2",
         "viewbox": "0 0 900 600",
         "default_guide": "Golden Triangles",
-        "description": "Street photography pioneer ($3:2$ Leica ratio). High-contrast, candid monochrome with geometric precision.",
+        "description": "Street photography pioneer (3:2 Leica ratio). High-contrast, candid monochrome with geometric precision.",
         "style_config": {
             "contrast_factor": 1.35,
             "saturation_factor": 0.0,
@@ -143,7 +147,7 @@ PHOTOGRAPHER_PRESETS = {
         "aspect_ratio": "5 / 4",
         "viewbox": "0 0 1000 800",
         "default_guide": "Rule of Thirds",
-        "description": "Large-format landscape master ($5:4$ view camera ratio). Deep Zone System blacks, crisp highlights, and vignetting.",
+        "description": "Large-format landscape master (5:4 view camera ratio). Deep Zone System blacks, crisp highlights, and vignetting.",
         "style_config": {
             "contrast_factor": 1.50,
             "saturation_factor": 0.0,
@@ -157,7 +161,7 @@ PHOTOGRAPHER_PRESETS = {
         "aspect_ratio": "3 / 2",
         "viewbox": "0 0 900 600",
         "default_guide": "Golden Section",
-        "description": "Vibrant narrative photojournalism ($3:2$ ratio). Rich saturation, deep warm tones, and strong subject emphasis.",
+        "description": "Vibrant narrative photojournalism (3:2 ratio). Rich saturation, deep warm tones, and strong subject emphasis.",
         "style_config": {
             "contrast_factor": 1.25,
             "saturation_factor": 1.45,
@@ -185,7 +189,6 @@ st.info(f"**Style Note:** {active_preset['description']}")
 def render_live_viewfinder(guide_type="Golden Spiral", aspect_ratio="1.618 / 1", viewbox="0 0 1000 618.034"):
     """Generates a responsive HTML5 camera stream with dynamically formatted composition guides."""
     
-    # Extract dimensions from viewbox string
     vb_parts = [float(val) for val in viewbox.split()]
     vb_w, vb_h = vb_parts[2], vb_parts[3]
 
@@ -209,7 +212,7 @@ def render_live_viewfinder(guide_type="Golden Spiral", aspect_ratio="1.618 / 1",
             <line x1="0" y1="{vb_h * 0.382}" x2="{vb_w}" y2="{vb_h * 0.382}" stroke="#dcc86f" stroke-width="1" />
             <line x1="0" y1="{vb_h * 0.618}" x2="{vb_w}" y2="{vb_h * 0.618}" stroke="#dcc86f" stroke-width="1" />
         """
-    else:  # Default: Golden Spiral (True 1000x618.034 Extended Subsquares)
+    else:  # Default: Golden Spiral
         svg_content = """
             <line x1="618.03" y1="0" x2="618.03" y2="618.03" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
             <line x1="618.03" y1="381.97" x2="1000" y2="381.97" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
@@ -364,25 +367,31 @@ if captured_bytes is not None:
     sharp_grade, sharp_advice, sharpness = mentor.analyze_sharpness()
     sat_grade, sat_advice, saturation = mentor.analyze_saturation()
 
-    # Section 2: Metric Breakdown & Adjustments
+    # Section 2: Metric Breakdown & Preset-Aware Fixes
     st.divider()
-    st.subheader("2. Metric Breakdown & Standard Auto-Fixes")
+    st.subheader(f"2. Metric Breakdown & {selected_preset_name} Tailored Fixes")
 
     def display_metric_section(title, grade, advice, metric_label, metric_value, is_imperfect, fix_func):
         st.markdown(f"### {title}: **{grade}**")
         st.caption(f"{metric_label}: {metric_value:.1f}")
         st.write(advice)
 
-        if is_imperfect:
-            st.warning(f"Correction suggested for {title.lower()}.")
-            fixed_bgr = fix_func()
+        if is_imperfect or active_preset["style_config"].get("monochrome", False):
+            st.warning(f"Adjustment applied matching {selected_preset_name} profile.")
+            
+            # Pass style_config to individual fix functions
+            if title in ["Exposure", "Sharpness", "Color Saturation"]:
+                fixed_bgr = fix_func(style_config=active_preset["style_config"])
+            else:
+                fixed_bgr = fix_func()
+
             fixed_rgb = cv2.cvtColor(fixed_bgr, cv2.COLOR_BGR2RGB)
 
             comp_col1, comp_col2 = st.columns(2)
             with comp_col1:
                 st.image(pil_image, caption="Before", use_container_width=True)
             with comp_col2:
-                st.image(fixed_rgb, caption=f"After ({title} Adjusted)", use_container_width=True)
+                st.image(fixed_rgb, caption=f"After ({title} Adjusted for {selected_preset_name})", use_container_width=True)
         else:
             st.success(f"{title} is optimal! No adjustments needed.")
 
@@ -416,7 +425,7 @@ if captured_bytes is not None:
     st.subheader(f"3. Master Result: {selected_preset_name} Style")
     st.write(f"Combines general technical corrections with color grading tailored to **{selected_preset_name}**.")
 
-    master_fixed_bgr = mentor.generate_master_fixed_image()
+    master_fixed_bgr = mentor.generate_master_fixed_image(active_preset["style_config"])
     styled_bgr = mentor.apply_photographer_style(master_fixed_bgr, active_preset["style_config"])
     styled_rgb = cv2.cvtColor(styled_bgr, cv2.COLOR_BGR2RGB)
 
