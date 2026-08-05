@@ -2,7 +2,7 @@
 streamlit_app.py
 -----------------
 Web UI for "Golden Number" photography evaluation app.
-Displays initial image with toggleable ratio overlay, keeps final output clean.
+Automatically applies ratio overlays on captured and processed photos.
 """
 
 import streamlit as st
@@ -35,9 +35,9 @@ st.markdown(
         color: #dcc86f;
         font-family: 'Helvetica Neue', sans-serif;
         font-weight: 800;
-        font-size: 2.8rem;
+        font-size: 2.6rem;
         margin-bottom: 0px;
-        text-shadow: 0px 0px 14px rgba(220, 200, 111, 0.45);
+        text-shadow: 0px 0px 12px rgba(220, 200, 111, 0.4);
     }
     .brand-accent-bar {
         height: 4px;
@@ -45,26 +45,20 @@ st.markdown(
         background: linear-gradient(90deg, #dcc86f 0%, rgba(220, 200, 111, 0.1) 100%);
         border-radius: 2px;
         margin-top: 6px;
-        margin-bottom: 22px;
+        margin-bottom: 18px;
     }
     .highlight-border {
         border-left: 4px solid #dcc86f;
         padding-left: 10px;
         margin-bottom: 20px;
     }
-    /* Style active tabs and buttons with the theme color */
-    button[role="tab"][aria-selected="true"] {
-        border-bottom-color: #dcc86f !important;
-        color: #dcc86f !important;
-    }
     div.stButton > button:first-child {
         border-color: #dcc86f;
         color: #dcc86f;
-        font-weight: 600;
     }
-    div.stButton > button:first-child:hover {
-        background-color: #dcc86f;
-        color: #0f0f0f;
+    button[role="tab"] {
+        font-size: 1rem;
+        padding: 0.6rem 1rem;
     }
     </style>
     """,
@@ -75,8 +69,8 @@ st.markdown("<h1 class='main-title'>✨ Golden Number</h1>", unsafe_allow_html=T
 st.markdown("<div class='brand-accent-bar'></div>", unsafe_allow_html=True)
 
 st.write(
-    "Take a photo or upload one to run computer vision diagnostic checks, preview artistic ratio guides "
-    "(Golden Ratio, Triangles, Rule of Thirds), and auto-correct your shot."
+    "Take a photo or upload one to run computer vision diagnostic checks, automatically overlay "
+    "golden ratios and artistic guides, and preview auto-fixes."
 )
 
 # ---------------------------------------------------------------------
@@ -109,37 +103,41 @@ if captured_bytes is not None:
 
     mentor = PhotoMentor(temp_path)
 
+    # Automatically generate Golden Spiral overlay by default
+    default_overlay_bgr = mentor.draw_composition_guide(guide_type="Golden Spiral")
+    default_overlay_rgb = cv2.cvtColor(default_overlay_bgr, cv2.COLOR_BGR2RGB)
+
     # Perform calculations
     exp_grade, exp_advice, brightness = mentor.analyze_exposure()
     comp_grade, comp_advice, tilt = mentor.analyze_composition()
     sharp_grade, sharp_advice, sharpness = mentor.analyze_sharpness()
     sat_grade, sat_advice, saturation = mentor.analyze_saturation()
 
-    # Section 1: Photo Preview & Toggleable Ratio Overlay
-    st.subheader("1. Composition & Ratio Preview")
-    
-    col_ctrl1, col_ctrl2 = st.columns([1, 2])
-    with col_ctrl1:
-        show_overlay = st.toggle("Overlay Composition Ratio", value=True)
-    with col_ctrl2:
-        selected_guide = st.selectbox(
-            "Select Ratio Guide",
-            ["Golden Spiral", "Rule of Thirds", "Golden Triangles", "Golden Section", "Golden Ratio Grid"],
-            disabled=not show_overlay
+    # Section 1: Image Capture + Automatic Overlay Display
+    st.subheader("1. Photo Analysis with Golden Spiral Overlay")
+    col1, col2 = st.columns([1, 1])
+
+    with col1:
+        st.image(pil_image, caption="Original Captured Photo", use_container_width=True)
+
+    with col2:
+        st.image(
+            default_overlay_rgb, 
+            caption="Automatic Ratio Overlay (Golden Spiral)", 
+            use_container_width=True
         )
 
-    p_col1, p_col2 = st.columns(2)
-
-    with p_col1:
-        st.image(pil_image, caption="Original Photo", use_container_width=True)
-
-    with p_col2:
-        if show_overlay:
-            overlay_bgr = mentor.draw_composition_guide(guide_type=selected_guide)
-            overlay_rgb = cv2.cvtColor(overlay_bgr, cv2.COLOR_BGR2RGB)
-            st.image(overlay_rgb, caption=f"Ratio Overlay ({selected_guide})", use_container_width=True)
-        else:
-            st.image(pil_image, caption="Preview (Overlay Hidden)", use_container_width=True)
+    # Optional selector if the user wants to switch ratio guides
+    selected_guide = st.selectbox(
+        "Switch Ratio Overlay Guide:",
+        ["Golden Spiral", "Rule of Thirds", "Golden Triangles", "Golden Section", "Golden Ratio Grid"],
+        index=0
+    )
+    
+    if selected_guide != "Golden Spiral":
+        custom_overlay_bgr = mentor.draw_composition_guide(guide_type=selected_guide)
+        custom_overlay_rgb = cv2.cvtColor(custom_overlay_bgr, cv2.COLOR_BGR2RGB)
+        st.image(custom_overlay_rgb, caption=f"Active Guide: {selected_guide}", use_container_width=True)
 
     st.divider()
 
@@ -190,24 +188,29 @@ if captured_bytes is not None:
         "Color Saturation", sat_grade, sat_advice, "Avg saturation (0-255)", saturation, sat_imperfect, mentor.fix_saturation
     )
 
-    # Master Output Section (Clean Output - No Overlay)
+    # Master Output Section
     st.subheader("3. Master Corrected Result")
-    st.write("Below is the final clean output combining all individual corrections.")
+    st.write("Below is the final output combining all individual corrections with the composition overlay applied.")
 
     master_fixed_bgr = mentor.generate_master_fixed_image()
-    master_fixed_rgb = cv2.cvtColor(master_fixed_bgr, cv2.COLOR_BGR2RGB)
+    
+    # Automatically apply overlay to final output image
+    master_mentor = PhotoMentor(temp_path)
+    master_mentor.img = master_fixed_bgr
+    master_fixed_overlay_bgr = master_mentor.draw_composition_guide(guide_type=selected_guide)
+    master_fixed_overlay_rgb = cv2.cvtColor(master_fixed_overlay_bgr, cv2.COLOR_BGR2RGB)
 
     m_col1, m_col2 = st.columns(2)
     with m_col1:
         st.image(pil_image, caption="Original Photo", use_container_width=True)
     with m_col2:
-        st.image(master_fixed_rgb, caption="Final Corrected Image", use_container_width=True)
+        st.image(master_fixed_overlay_rgb, caption="Final Corrected Image (with Overlay)", use_container_width=True)
 
-    # Download Button for Clean Final Image
-    success, encoded_img = cv2.imencode(".jpg", master_fixed_bgr)
+    # Download Button
+    success, encoded_img = cv2.imencode(".jpg", master_fixed_overlay_bgr)
     if success:
         st.download_button(
-            label="⬇️ Download corrected photo",
+            label="⬇️ Download corrected photo with overlay",
             data=encoded_img.tobytes(),
             file_name="golden_number_corrected.jpg",
             mime="image/jpeg",
