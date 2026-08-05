@@ -2,7 +2,7 @@
 streamlit_app.py
 -----------------
 Web UI for "Golden Number" photography evaluation app.
-Features real-time camera viewfinder with geometrically accurate composition overlays.
+Features real-time camera viewfinder with geometrically accurate, non-distorting composition overlays.
 """
 
 import streamlit as st
@@ -73,33 +73,41 @@ def render_live_viewfinder(guide_type="Golden Spiral"):
     
     if guide_type == "Rule of Thirds":
         svg_content = """
-            <line x1="133.33" y1="0" x2="133.33" y2="300" stroke="#dcc86f" stroke-width="1" />
-            <line x1="266.66" y1="0" x2="266.66" y2="300" stroke="#dcc86f" stroke-width="1" />
-            <line x1="0" y1="100" x2="400" y2="100" stroke="#dcc86f" stroke-width="1" />
-            <line x1="0" y1="200" x2="400" y2="200" stroke="#dcc86f" stroke-width="1" />
+            <line x1="133.33" y1="0" x2="133.33" y2="247.2" stroke="#dcc86f" stroke-width="1" />
+            <line x1="266.66" y1="0" x2="266.66" y2="247.2" stroke="#dcc86f" stroke-width="1" />
+            <line x1="0" y1="82.4" x2="400" y2="82.4" stroke="#dcc86f" stroke-width="1" />
+            <line x1="0" y1="164.8" x2="400" y2="164.8" stroke="#dcc86f" stroke-width="1" />
         """
     elif guide_type == "Golden Triangles":
-        # Diagonal from bottom-left to top-right with perpendicular intersections
         svg_content = """
-            <line x1="0" y1="300" x2="400" y2="0" stroke="#dcc86f" stroke-width="1" />
-            <line x1="0" y1="0" x2="144" y2="192" stroke="#dcc86f" stroke-width="1" />
-            <line x1="400" y1="300" x2="256" y2="108" stroke="#dcc86f" stroke-width="1" />
+            <line x1="0" y1="247.2" x2="400" y2="0" stroke="#dcc86f" stroke-width="1" />
+            <line x1="0" y1="0" x2="110.6" y2="178.9" stroke="#dcc86f" stroke-width="1" />
+            <line x1="400" y1="247.2" x2="289.4" y2="68.3" stroke="#dcc86f" stroke-width="1" />
         """
     elif guide_type == "Golden Section":
         svg_content = """
-            <line x1="152.8" y1="0" x2="152.8" y2="300" stroke="#dcc86f" stroke-width="1" />
-            <line x1="247.2" y1="0" x2="247.2" y2="300" stroke="#dcc86f" stroke-width="1" />
-            <line x1="0" y1="114.6" x2="400" y2="114.6" stroke="#dcc86f" stroke-width="1" />
-            <line x1="0" y1="185.4" x2="400" y2="185.4" stroke="#dcc86f" stroke-width="1" />
+            <line x1="152.8" y1="0" x2="152.8" y2="247.2" stroke="#dcc86f" stroke-width="1" />
+            <line x1="247.2" y1="0" x2="247.2" y2="247.2" stroke="#dcc86f" stroke-width="1" />
+            <line x1="0" y1="94.4" x2="400" y2="94.4" stroke="#dcc86f" stroke-width="1" />
+            <line x1="0" y1="152.8" x2="400" y2="152.8" stroke="#dcc86f" stroke-width="1" />
         """
-    else:  # Default: Golden Spiral
+    else:  # Default: Golden Spiral (Mathematically True Fibonacci Arc Chain)
         svg_content = """
-            <line x1="247.2" y1="0" x2="247.2" y2="300" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.6" />
-            <line x1="247.2" y1="185.4" x2="400" y2="185.4" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.6" />
-            <line x1="247.2" y1="114.6" x2="341.6" y2="114.6" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.6" />
-            
-            <path d="M 0,300 A 300,300 0 0,1 400,0 A 152.8,152.8 0 0,1 247.2,114.6 A 94.4,94.4 0 0,1 341.6,185.4 A 58.4,58.4 0 0,1 283.2,141.6" 
-                  fill="none" stroke="#dcc86f" stroke-width="1.5" vector-effect="non-scaling-stroke" />
+            <line x1="247.2" y1="0" x2="247.2" y2="247.2" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.5" />
+            <line x1="247.2" y1="152.8" x2="400" y2="152.8" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.5" />
+            <line x1="247.2" y1="152.8" x2="247.2" y2="247.2" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.5" />
+            <line x1="305.6" y1="152.8" x2="305.6" y2="247.2" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.5" />
+            <line x1="305.6" y1="188.8" x2="400" y2="188.8" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.5" />
+
+            <path d="
+                M 0,247.2 
+                A 247.2,247.2 0 0,1 247.2,0 
+                A 152.8,152.8 0 0,1 400,152.8 
+                A 94.4,94.4 0 0,1 305.6,247.2 
+                A 58.4,58.4 0 0,1 247.2,188.8 
+                A 36.0,36.0 0 0,1 283.2,152.8 
+                A 22.4,22.4 0 0,1 305.6,175.2
+            " fill="none" stroke="#dcc86f" stroke-width="1.5" vector-effect="non-scaling-stroke" />
         """
 
     viewfinder_html = f"""
@@ -132,6 +140,7 @@ def render_live_viewfinder(guide_type="Golden Spiral"):
                 width: 100%;
                 height: 100%;
                 pointer-events: none;
+                object-fit: fill;
             }}
             .badge {{
                 position: absolute;
@@ -151,7 +160,7 @@ def render_live_viewfinder(guide_type="Golden Spiral"):
     <body>
         <div class="frame-wrapper">
             <video id="webcam" autoplay playsinline muted></video>
-            <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet">
+            <svg viewBox="0 0 400 247.2" preserveAspectRatio="none">
                 {svg_content}
             </svg>
             <div class="badge">LIVE GUIDE: {guide_type.upper()}</div>
