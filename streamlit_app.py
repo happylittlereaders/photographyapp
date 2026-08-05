@@ -2,7 +2,7 @@
 streamlit_app.py
 -----------------
 Web UI for "Golden Number" photography evaluation app.
-Provides fine-line ratio overlays alongside live camera capture controls.
+Features real-time camera viewfinder with geometrically accurate composition overlays.
 """
 
 import streamlit as st
@@ -16,7 +16,7 @@ from photo_mentor import PhotoMentor
 # Page Configuration
 st.set_page_config(page_title="Golden Number", page_icon="✨", layout="wide")
 
-# Custom Styling
+# Custom Styling incorporating Hex #dcc86f
 st.markdown(
     """
     <style>
@@ -61,43 +61,44 @@ st.markdown("<h1 class='main-title'>✨ Golden Number</h1>", unsafe_allow_html=T
 st.markdown("<div class='brand-accent-bar'></div>", unsafe_allow_html=True)
 
 st.write(
-    "Use the live interactive viewfinder to align your frame with fine composition guides in real-time, "
+    "Use the live interactive viewfinder to align your frame with precise composition guides in real-time, "
     "then capture or upload a photo for computer vision analysis and auto-corrections."
 )
 
 # ---------------------------------------------------------------------
-# Helper: Precise Live Viewfinder Component (Thinner Lines & Anti-Clipping)
+# Helper: Precise Live Viewfinder Component (Fixed Geometry & Anti-Clipping)
 # ---------------------------------------------------------------------
 def render_live_viewfinder(guide_type="Golden Spiral"):
-    """Generates a scaled HTML5 video stream with clean, non-clipping SVG overlays."""
+    """Generates a responsive HTML5 video stream with accurate composition overlay guides."""
     
-    # Ultra-thin, precise SVG overlays using percentage dimensions
     if guide_type == "Rule of Thirds":
         svg_content = """
-            <line x1="33.33%" y1="0%" x2="33.33%" y2="100%" stroke="#dcc86f" stroke-width="1" />
-            <line x1="66.66%" y1="0%" x2="66.66%" y2="100%" stroke="#dcc86f" stroke-width="1" />
-            <line x1="0%" y1="33.33%" x2="100%" y2="33.33%" stroke="#dcc86f" stroke-width="1" />
-            <line x1="0%" y1="66.66%" x2="100%" y2="66.66%" stroke="#dcc86f" stroke-width="1" />
+            <line x1="133.33" y1="0" x2="133.33" y2="300" stroke="#dcc86f" stroke-width="1" />
+            <line x1="266.66" y1="0" x2="266.66" y2="300" stroke="#dcc86f" stroke-width="1" />
+            <line x1="0" y1="100" x2="400" y2="100" stroke="#dcc86f" stroke-width="1" />
+            <line x1="0" y1="200" x2="400" y2="200" stroke="#dcc86f" stroke-width="1" />
         """
     elif guide_type == "Golden Triangles":
+        # Diagonal from bottom-left to top-right with perpendicular intersections
         svg_content = """
-            <line x1="0%" y1="100%" x2="100%" y2="0%" stroke="#dcc86f" stroke-width="1" />
-            <line x1="0%" y1="0%" x2="61.8%" y2="38.2%" stroke="#dcc86f" stroke-width="1" />
-            <line x1="100%" y1="100%" x2="38.2%" y2="61.8%" stroke="#dcc86f" stroke-width="1" />
+            <line x1="0" y1="300" x2="400" y2="0" stroke="#dcc86f" stroke-width="1" />
+            <line x1="0" y1="0" x2="144" y2="192" stroke="#dcc86f" stroke-width="1" />
+            <line x1="400" y1="300" x2="256" y2="108" stroke="#dcc86f" stroke-width="1" />
         """
     elif guide_type == "Golden Section":
         svg_content = """
-            <line x1="38.2%" y1="0%" x2="38.2%" y2="100%" stroke="#dcc86f" stroke-width="1" />
-            <line x1="61.8%" y1="0%" x2="61.8%" y2="100%" stroke="#dcc86f" stroke-width="1" />
-            <line x1="0%" y1="38.2%" x2="100%" y2="38.2%" stroke="#dcc86f" stroke-width="1" />
-            <line x1="0%" y1="61.8%" x2="100%" y2="61.8%" stroke="#dcc86f" stroke-width="1" />
+            <line x1="152.8" y1="0" x2="152.8" y2="300" stroke="#dcc86f" stroke-width="1" />
+            <line x1="247.2" y1="0" x2="247.2" y2="300" stroke="#dcc86f" stroke-width="1" />
+            <line x1="0" y1="114.6" x2="400" y2="114.6" stroke="#dcc86f" stroke-width="1" />
+            <line x1="0" y1="185.4" x2="400" y2="185.4" stroke="#dcc86f" stroke-width="1" />
         """
     else:  # Default: Golden Spiral
         svg_content = """
-            <rect x="0.5%" y="0.5%" width="99%" height="99%" fill="none" stroke="#dcc86f" stroke-width="1" />
-            <line x1="61.8%" y1="0%" x2="61.8%" y2="100%" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" />
-            <line x1="0%" y1="61.8%" x2="100%" y2="61.8%" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" />
-            <path d="M 0,0 A 100 100 0 0 1 100,100 A 61.8 61.8 0 0 1 38.2,38.2 A 38.2 38.2 0 0 1 76.4,61.8 A 23.6 23.6 0 0 1 52.8,47.2" 
+            <line x1="247.2" y1="0" x2="247.2" y2="300" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.6" />
+            <line x1="247.2" y1="185.4" x2="400" y2="185.4" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.6" />
+            <line x1="247.2" y1="114.6" x2="341.6" y2="114.6" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.6" />
+            
+            <path d="M 0,300 A 300,300 0 0,1 400,0 A 152.8,152.8 0 0,1 247.2,114.6 A 94.4,94.4 0 0,1 341.6,185.4 A 58.4,58.4 0 0,1 283.2,141.6" 
                   fill="none" stroke="#dcc86f" stroke-width="1.5" vector-effect="non-scaling-stroke" />
         """
 
@@ -117,7 +118,6 @@ def render_live_viewfinder(guide_type="Golden Spiral"):
                 border-radius: 8px;
                 overflow: hidden;
                 border: 1px solid #dcc86f;
-                box-shadow: 0 2px 10px rgba(220, 200, 111, 0.2);
             }}
             video {{
                 width: 100%;
@@ -151,7 +151,7 @@ def render_live_viewfinder(guide_type="Golden Spiral"):
     <body>
         <div class="frame-wrapper">
             <video id="webcam" autoplay playsinline muted></video>
-            <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+            <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet">
                 {svg_content}
             </svg>
             <div class="badge">LIVE GUIDE: {guide_type.upper()}</div>
@@ -186,7 +186,7 @@ with input_tab:
         index=0
     )
     
-    # Side-by-Side layout to keep the ratio guide in view while taking photo
+    # Side-by-Side layout keeps the ratio guide visible alongside the camera control
     cam_col1, cam_col2 = st.columns([1, 1])
     
     with cam_col1:
