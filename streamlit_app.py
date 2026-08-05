@@ -2,10 +2,11 @@
 streamlit_app.py
 -----------------
 Web UI for "Golden Number" photography evaluation app.
-Displays initial image with toggleable ratio overlay, keeps final output clean.
+Features a live HTML5 viewfinder with ratio guides directly over the live camera stream.
 """
 
 import streamlit as st
+import streamlit.components.v1 as components
 import numpy as np
 import cv2
 from PIL import Image
@@ -24,7 +25,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Custom Styling incorporating Hex #dcc86f prominently
+# Custom Styling incorporating Hex #dcc86f
 st.markdown(
     """
     <style>
@@ -47,12 +48,6 @@ st.markdown(
         margin-top: 6px;
         margin-bottom: 22px;
     }
-    .highlight-border {
-        border-left: 4px solid #dcc86f;
-        padding-left: 10px;
-        margin-bottom: 20px;
-    }
-    /* Style active tabs and buttons with the theme color */
     button[role="tab"][aria-selected="true"] {
         border-bottom-color: #dcc86f !important;
         color: #dcc86f !important;
@@ -75,19 +70,137 @@ st.markdown("<h1 class='main-title'>✨ Golden Number</h1>", unsafe_allow_html=T
 st.markdown("<div class='brand-accent-bar'></div>", unsafe_allow_html=True)
 
 st.write(
-    "Take a photo or upload one to run computer vision diagnostic checks, preview artistic ratio guides "
-    "(Golden Ratio, Triangles, Rule of Thirds), and auto-correct your shot."
+    "Use the live interactive viewfinder to align your frame with composition guides in real-time, "
+    "then capture or upload a photo for computer vision analysis and corrections."
 )
 
 # ---------------------------------------------------------------------
-# Input: Camera capture OR File upload
+# Helper: HTML5 Live Viewfinder Component with SVG Overlays
+# ---------------------------------------------------------------------
+def render_live_viewfinder(guide_type="Golden Spiral"):
+    """Generates a responsive HTML5 video stream with SVG composition overlay lines."""
+    
+    # Define SVG path overlays
+    if guide_type == "Rule of Thirds":
+        svg_content = """
+            <line x1="33.3%" y1="0%" x2="33.3%" y2="100%" stroke="#dcc86f" stroke-width="2" />
+            <line x1="66.6%" y1="0%" x2="66.6%" y2="100%" stroke="#dcc86f" stroke-width="2" />
+            <line x1="0%" y1="33.3%" x2="100%" y2="33.3%" stroke="#dcc86f" stroke-width="2" />
+            <line x1="0%" y1="66.6%" x2="100%" y2="66.6%" stroke="#dcc86f" stroke-width="2" />
+        """
+    elif guide_type == "Golden Triangles":
+        svg_content = """
+            <line x1="0%" y1="100%" x2="100%" y2="0%" stroke="#dcc86f" stroke-width="2" />
+            <line x1="0%" y1="0%" x2="61.8%" y2="38.2%" stroke="#dcc86f" stroke-width="2" />
+            <line x1="100%" y1="100%" x2="38.2%" y2="61.8%" stroke="#dcc86f" stroke-width="2" />
+        """
+    elif guide_type == "Golden Section":
+        svg_content = """
+            <line x1="38.2%" y1="0%" x2="38.2%" y2="100%" stroke="#dcc86f" stroke-width="2" />
+            <line x1="61.8%" y1="0%" x2="61.8%" y2="100%" stroke="#dcc86f" stroke-width="2" />
+            <line x1="0%" y1="38.2%" x2="100%" y2="38.2%" stroke="#dcc86f" stroke-width="2" />
+            <line x1="0%" y1="61.8%" x2="100%" y2="61.8%" stroke="#dcc86f" stroke-width="2" />
+        """
+    else:  # Default: Golden Spiral
+        svg_content = """
+            <rect x="0" y="0" width="100%" height="100%" fill="none" stroke="#dcc86f" stroke-width="1.5" />
+            <path d="M 0,0 A 100 100 0 0 1 100,100 A 61.8 61.8 0 0 1 38.2,38.2 A 38.2 38.2 0 0 1 76.4,61.8" 
+                  fill="none" stroke="#dcc86f" stroke-width="2.5" vector-effect="non-scaling-stroke" />
+            <line x1="61.8%" y1="0%" x2="61.8%" y2="100%" stroke="#dcc86f" stroke-width="1" stroke-dasharray="4" />
+            <line x1="0%" y1="61.8%" x2="100%" y2="61.8%" stroke="#dcc86f" stroke-width="1" stroke-dasharray="4" />
+        """
+
+    viewfinder_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ margin: 0; padding: 0; background-color: #0f0f0f; font-family: sans-serif; }}
+            .container {{
+                position: relative;
+                width: 100%;
+                max-width: 640px;
+                margin: 0 auto;
+                aspect-ratio: 4/3;
+                border-radius: 12px;
+                overflow: hidden;
+                border: 2px solid #dcc86f;
+                box-shadow: 0 4px 15px rgba(220, 200, 111, 0.2);
+            }}
+            video {{
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                display: block;
+            }}
+            svg {{
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
+            }}
+            .badge {{
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                background: rgba(15, 15, 15, 0.75);
+                color: #dcc86f;
+                padding: 4px 10px;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: bold;
+                letter-spacing: 0.5px;
+                border: 1px solid #dcc86f;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <video id="webcam" autoplay playsinline muted></video>
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+                {svg_content}
+            </svg>
+            <div class="badge">LIVE OVERLAY: {guide_type.upper()}</div>
+        </div>
+
+        <script>
+            const video = document.getElementById('webcam');
+            navigator.mediaDevices.getUserMedia({{ 
+                video: {{ facingMode: {{ ideal: "environment" }}, width: {{ ideal: 1280 }}, height: {{ ideal: 720 }} }} 
+            }})
+            .then((stream) => {{ video.srcObject = stream; }})
+            .catch((err) => {{ console.error("Camera access error:", err); }});
+        </script>
+    </body>
+    </html>
+    """
+    components.html(viewfinder_html, height=380)
+
+# ---------------------------------------------------------------------
+# Input: Camera Capture OR File Upload
 # ---------------------------------------------------------------------
 input_tab, upload_tab = st.tabs(["📷 Take Photo", "🖼️ Upload Photo"])
 
 captured_bytes = None
 
 with input_tab:
-    camera_file = st.camera_input("Take a picture")
+    st.subheader("1. Real-Time Viewfinder")
+    
+    col_g1, col_g2 = st.columns([1, 1])
+    with col_g1:
+        selected_live_guide = st.selectbox(
+            "Select Live Ratio Overlay",
+            ["Golden Spiral", "Rule of Thirds", "Golden Triangles", "Golden Section"],
+            index=0
+        )
+    
+    # Render Live Video Stream with SVG overlay directly on top
+    render_live_viewfinder(guide_type=selected_live_guide)
+    
+    st.caption("Align your shot using the live overlay above, then snap your picture below:")
+    camera_file = st.camera_input("Snap Picture")
     if camera_file is not None:
         captured_bytes = camera_file
 
@@ -115,35 +228,8 @@ if captured_bytes is not None:
     sharp_grade, sharp_advice, sharpness = mentor.analyze_sharpness()
     sat_grade, sat_advice, saturation = mentor.analyze_saturation()
 
-    # Section 1: Photo Preview & Toggleable Ratio Overlay
-    st.subheader("1. Composition & Ratio Preview")
-    
-    col_ctrl1, col_ctrl2 = st.columns([1, 2])
-    with col_ctrl1:
-        show_overlay = st.toggle("Overlay Composition Ratio", value=True)
-    with col_ctrl2:
-        selected_guide = st.selectbox(
-            "Select Ratio Guide",
-            ["Golden Spiral", "Rule of Thirds", "Golden Triangles", "Golden Section", "Golden Ratio Grid"],
-            disabled=not show_overlay
-        )
-
-    p_col1, p_col2 = st.columns(2)
-
-    with p_col1:
-        st.image(pil_image, caption="Original Photo", use_container_width=True)
-
-    with p_col2:
-        if show_overlay:
-            overlay_bgr = mentor.draw_composition_guide(guide_type=selected_guide)
-            overlay_rgb = cv2.cvtColor(overlay_bgr, cv2.COLOR_BGR2RGB)
-            st.image(overlay_rgb, caption=f"Ratio Overlay ({selected_guide})", use_container_width=True)
-        else:
-            st.image(pil_image, caption="Preview (Overlay Hidden)", use_container_width=True)
-
+    # Section 2: Metric Breakdown & Before/After Adjustments
     st.divider()
-
-    # Section 2: Metric Breakdown & Adjustments
     st.subheader("2. Metric Breakdown & Before/After Adjustments")
 
     def display_metric_section(title, grade, advice, metric_label, metric_value, is_imperfect, fix_func):
@@ -192,7 +278,7 @@ if captured_bytes is not None:
 
     # Master Output Section (Clean Output - No Overlay)
     st.subheader("3. Master Corrected Result")
-    st.write("Below is the final clean output combining all individual corrections.")
+    st.write("Below is the final clean image output combining all auto-corrections.")
 
     master_fixed_bgr = mentor.generate_master_fixed_image()
     master_fixed_rgb = cv2.cvtColor(master_fixed_bgr, cv2.COLOR_BGR2RGB)
@@ -203,7 +289,7 @@ if captured_bytes is not None:
     with m_col2:
         st.image(master_fixed_rgb, caption="Final Corrected Image", use_container_width=True)
 
-    # Download Button for Clean Final Image
+    # Download Button
     success, encoded_img = cv2.imencode(".jpg", master_fixed_bgr)
     if success:
         st.download_button(
