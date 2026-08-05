@@ -3,6 +3,9 @@ photo_mentor.py
 ----------------
 Core analysis, composition guides (Golden Spiral, Golden Triangles, etc.),
 and image correction logic with two-way auto-fixing for exposure and saturation.
+
+(Unchanged from your original -- included here so the repo is complete and
+self-contained for deployment.)
 """
 
 import cv2
@@ -25,11 +28,7 @@ class PhotoMentor:
         self.hsv = cv2.cvtColor(self.img, cv2.COLOR_BGR2HSV)
         self.height, self.width = self.gray.shape
 
-    # ------------------------------------------------------------------
-    # 1. Exposure (Two-way: Brightens darks & Darkens brights)
-    # ------------------------------------------------------------------
     def analyze_exposure(self):
-        """Returns (grade, advice, avg_brightness) based on brightness & clipping."""
         avg_brightness = float(np.mean(self.gray))
         overexposed_ratio = float(np.sum(self.gray > 240)) / self.gray.size
 
@@ -49,27 +48,21 @@ class PhotoMentor:
         return grade, advice, avg_brightness
 
     def fix_exposure(self, img_bgr=None):
-        """Applies gamma correction to brighten underexposed photos or darken overexposed ones."""
         src = self.img if img_bgr is None else img_bgr
         gray_src = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
         avg_brightness = float(np.mean(gray_src))
         overexposed_ratio = float(np.sum(gray_src > 240)) / gray_src.size
 
-        # Determine dynamic target brightness
         if overexposed_ratio > 0.10:
-            target_brightness = 110.0  # Darken more aggressively if highlights are clipped
+            target_brightness = 110.0
         else:
-            target_brightness = 128.0  # Standard midtone balance
+            target_brightness = 128.0
 
         if avg_brightness < 1.0:
             avg_brightness = 1.0
 
-        # Calculate gamma:
-        # avg_brightness < target => gamma in [0.80, 1.0) -> Brightens
-        # avg_brightness > target => gamma in (1.0, 1.25] -> Darkens
         gamma = np.clip(target_brightness / avg_brightness, 0.80, 1.25)
 
-        # Build lookup table
         inv_gamma = 1.0 / gamma
         table = np.array(
             [((i / 255.0) ** inv_gamma) * 255 for i in np.arange(0, 256)]
@@ -77,14 +70,9 @@ class PhotoMentor:
 
         adjusted = cv2.LUT(src, table)
 
-        # Blend 60% original + 40% adjustment for a natural look
         return cv2.addWeighted(src, 0.60, adjusted, 0.40, 0)
 
-    # ------------------------------------------------------------------
-    # 2. Composition (Horizon Tilt)
-    # ------------------------------------------------------------------
     def analyze_composition(self):
-        """Detects dominant near-horizontal lines and estimates tilt angle."""
         edges = cv2.Canny(self.gray, 50, 150)
         min_length = max(1, min(self.width, self.height) // 4)
 
@@ -112,7 +100,6 @@ class PhotoMentor:
         return grade, advice, max_tilt
 
     def fix_composition(self, img_bgr=None):
-        """Rotates image to level horizon if tilt is detected."""
         src = self.img if img_bgr is None else img_bgr
         _, _, tilt = self.analyze_composition()
 
@@ -125,11 +112,7 @@ class PhotoMentor:
             src, matrix, (self.width, self.height), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE
         )
 
-    # ------------------------------------------------------------------
-    # 3. Sharpness
-    # ------------------------------------------------------------------
     def analyze_sharpness(self):
-        """Uses variance of Laplacian to evaluate focus and blur."""
         sharpness = cv2.Laplacian(self.gray, cv2.CV_64F).var()
 
         if sharpness < 40:
@@ -145,7 +128,6 @@ class PhotoMentor:
         return grade, advice, sharpness
 
     def fix_sharpness(self, img_bgr=None):
-        """Applies gentle unsharp masking filter only if photo requires sharpening."""
         src = self.img if img_bgr is None else img_bgr
         grade, _, _ = self.analyze_sharpness()
 
@@ -155,11 +137,7 @@ class PhotoMentor:
         blurred = cv2.GaussianBlur(src, (0, 0), 2.0)
         return cv2.addWeighted(src, 1.15, blurred, -0.15, 0)
 
-    # ------------------------------------------------------------------
-    # 4. Color Saturation (Two-way: Boosts pale & Desaturates vivid)
-    # ------------------------------------------------------------------
     def analyze_saturation(self):
-        """Checks average saturation in HSV space."""
         avg_saturation = float(np.mean(self.hsv[:, :, 1]))
 
         if avg_saturation < 30:
@@ -175,38 +153,27 @@ class PhotoMentor:
         return grade, advice, avg_saturation
 
     def fix_saturation(self, img_bgr=None):
-        """Boosts saturation if washed out or tones it down if oversaturated."""
         src = self.img if img_bgr is None else img_bgr
         hsv = cv2.cvtColor(src, cv2.COLOR_BGR2HSV)
         h, s, v = cv2.split(hsv)
 
         avg_sat = np.mean(s)
         if avg_sat < 30:
-            # Boost pale photos (+25 saturation)
             s = cv2.add(s, 25)
         elif avg_sat > 180:
-            # Reduce harsh/oversaturated photos (-30 saturation)
             s = cv2.subtract(s, 30)
 
         fixed_hsv = cv2.merge((h, s, v))
         return cv2.cvtColor(fixed_hsv, cv2.COLOR_HSV2BGR)
 
-    # ------------------------------------------------------------------
-    # Master Fixed Output
-    # ------------------------------------------------------------------
     def generate_master_fixed_image(self):
-        """Applies all available fixes sequentially."""
         fixed = self.fix_exposure(self.img)
         fixed = self.fix_composition(fixed)
         fixed = self.fix_sharpness(fixed)
         fixed = self.fix_saturation(fixed)
         return fixed
 
-    # ------------------------------------------------------------------
-    # Standardized Composition Overlays
-    # ------------------------------------------------------------------
     def _draw_golden_spiral(self, canvas, color, thickness):
-        """Fits a standardized 1.618:1 Golden Rectangle into the image and draws a complete Golden Spiral."""
         phi = 1.61803398875
         img_aspect = self.width / self.height
 
@@ -268,7 +235,6 @@ class PhotoMentor:
             state = (state + 1) % 4
 
     def draw_composition_guide(self, guide_type="Golden Spiral"):
-        """Draws specified composition guide over image."""
         canvas = self.img.copy()
         color = (111, 200, 220)  # Hex #dcc86f in BGR
         thickness = 2

@@ -15,6 +15,7 @@ rule_of_thirds_preview.jpg
 *.jpeg
 *.png
 !assets/**
+!static/icons/**
 
 # OS / editor junk
 .DS_Store

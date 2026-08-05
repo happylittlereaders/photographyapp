@@ -2,6 +2,7 @@
 streamlit_app.py
 -----------------
 Web UI for "Golden Number" photography evaluation app.
+Now supports direct camera capture for mobile users, in addition to file upload.
 """
 
 import streamlit as st
@@ -13,6 +14,17 @@ from photo_mentor import PhotoMentor
 
 # Page Configuration
 st.set_page_config(page_title="Golden Number", page_icon="✨", layout="wide")
+
+# PWA support: links the manifest + service worker so the app is
+# installable to a phone home screen (requires enableStaticServing = true
+# in .streamlit/config.toml and the static/ folder committed to the repo).
+st.markdown(
+    """
+    <link rel="manifest" href="/app/static/manifest.json">
+    <meta name="theme-color" content="#dcc86f">
+    """,
+    unsafe_allow_html=True,
+)
 
 # Custom Styling incorporating Hex #dcc86f
 st.markdown(
@@ -34,6 +46,11 @@ st.markdown(
     div.stButton > button:first-child {
         border-color: #dcc86f;
     }
+    /* Make tabs and buttons a bit larger/easier to tap on mobile */
+    button[role="tab"] {
+        font-size: 1rem;
+        padding: 0.6rem 1rem;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -41,17 +58,32 @@ st.markdown(
 
 st.markdown("<h1 class='main-title'>✨ Golden Number</h1>", unsafe_allow_html=True)
 st.write(
-    "Upload your image to run computer vision diagnostic checks, explore artistic guides "
+    "Take a photo or upload one to run computer vision diagnostic checks, explore artistic guides "
     "(Golden Ratio, Triangles, Rule of Thirds), and preview step-by-step auto-fixes."
 )
 
-uploaded_file = st.file_uploader(
-    "Upload a photo", type=["jpg", "jpeg", "png"], accept_multiple_files=False
-)
+# ---------------------------------------------------------------------
+# Input: camera capture (mobile-friendly) OR file upload
+# ---------------------------------------------------------------------
+input_tab, upload_tab = st.tabs(["📷 Take Photo", "🖼️ Upload Photo"])
 
-if uploaded_file is not None:
-    # Convert upload to BGR numpy array
-    pil_image = Image.open(uploaded_file).convert("RGB")
+captured_bytes = None
+
+with input_tab:
+    camera_file = st.camera_input("Take a picture")
+    if camera_file is not None:
+        captured_bytes = camera_file
+
+with upload_tab:
+    uploaded_file = st.file_uploader(
+        "Upload a photo", type=["jpg", "jpeg", "png"], accept_multiple_files=False
+    )
+    if uploaded_file is not None:
+        captured_bytes = uploaded_file
+
+if captured_bytes is not None:
+    # Convert upload/capture to BGR numpy array
+    pil_image = Image.open(captured_bytes).convert("RGB")
     rgb_array = np.array(pil_image)
     bgr_array = cv2.cvtColor(rgb_array, cv2.COLOR_RGB2BGR)
 
@@ -71,7 +103,7 @@ if uploaded_file is not None:
     col1, col2 = st.columns([1, 1])
 
     with col1:
-        st.image(pil_image, caption="Original Upload", use_container_width=True)
+        st.image(pil_image, caption="Original Photo", use_container_width=True)
 
     with col2:
         guide_selection = st.selectbox(
@@ -104,7 +136,7 @@ if uploaded_file is not None:
                 st.image(fixed_rgb, caption=f"After ({title} Adjusted)", use_container_width=True)
         else:
             st.success(f"{title} is optimal! No adjustments needed.")
-        
+
         st.divider()
 
     # Exposure Section
@@ -144,5 +176,15 @@ if uploaded_file is not None:
     with m_col2:
         st.image(master_fixed_rgb, caption="Final Corrected Image", use_container_width=True)
 
+    # Let the user download the corrected image straight to their phone
+    success, encoded_img = cv2.imencode(".jpg", master_fixed_bgr)
+    if success:
+        st.download_button(
+            label="⬇️ Download corrected photo",
+            data=encoded_img.tobytes(),
+            file_name="golden_number_corrected.jpg",
+            mime="image/jpeg",
+        )
+
 else:
-    st.info("Upload a JPG or PNG photo above to analyze and auto-correct.")
+    st.info("Take a photo or upload a JPG/PNG above to analyze and auto-correct.")
