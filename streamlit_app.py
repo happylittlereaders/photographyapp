@@ -2,7 +2,7 @@
 streamlit_app.py
 -----------------
 Web UI for "Golden Number" photography evaluation app.
-Features a live HTML5 viewfinder with ratio guides directly over the live camera stream.
+Provides fine-line ratio overlays alongside live camera capture controls.
 """
 
 import streamlit as st
@@ -16,16 +16,7 @@ from photo_mentor import PhotoMentor
 # Page Configuration
 st.set_page_config(page_title="Golden Number", page_icon="✨", layout="wide")
 
-# PWA support
-st.markdown(
-    """
-    <link rel="manifest" href="/app/static/manifest.json">
-    <meta name="theme-color" content="#dcc86f">
-    """,
-    unsafe_allow_html=True,
-)
-
-# Custom Styling incorporating Hex #dcc86f
+# Custom Styling
 st.markdown(
     """
     <style>
@@ -70,44 +61,44 @@ st.markdown("<h1 class='main-title'>✨ Golden Number</h1>", unsafe_allow_html=T
 st.markdown("<div class='brand-accent-bar'></div>", unsafe_allow_html=True)
 
 st.write(
-    "Use the live interactive viewfinder to align your frame with composition guides in real-time, "
-    "then capture or upload a photo for computer vision analysis and corrections."
+    "Use the live interactive viewfinder to align your frame with fine composition guides in real-time, "
+    "then capture or upload a photo for computer vision analysis and auto-corrections."
 )
 
 # ---------------------------------------------------------------------
-# Helper: HTML5 Live Viewfinder Component with SVG Overlays
+# Helper: Precise Live Viewfinder Component (Thinner Lines & Anti-Clipping)
 # ---------------------------------------------------------------------
 def render_live_viewfinder(guide_type="Golden Spiral"):
-    """Generates a responsive HTML5 video stream with SVG composition overlay lines."""
+    """Generates a scaled HTML5 video stream with clean, non-clipping SVG overlays."""
     
-    # Define SVG path overlays
+    # Ultra-thin, precise SVG overlays using percentage dimensions
     if guide_type == "Rule of Thirds":
         svg_content = """
-            <line x1="33.3%" y1="0%" x2="33.3%" y2="100%" stroke="#dcc86f" stroke-width="2" />
-            <line x1="66.6%" y1="0%" x2="66.6%" y2="100%" stroke="#dcc86f" stroke-width="2" />
-            <line x1="0%" y1="33.3%" x2="100%" y2="33.3%" stroke="#dcc86f" stroke-width="2" />
-            <line x1="0%" y1="66.6%" x2="100%" y2="66.6%" stroke="#dcc86f" stroke-width="2" />
+            <line x1="33.33%" y1="0%" x2="33.33%" y2="100%" stroke="#dcc86f" stroke-width="1" />
+            <line x1="66.66%" y1="0%" x2="66.66%" y2="100%" stroke="#dcc86f" stroke-width="1" />
+            <line x1="0%" y1="33.33%" x2="100%" y2="33.33%" stroke="#dcc86f" stroke-width="1" />
+            <line x1="0%" y1="66.66%" x2="100%" y2="66.66%" stroke="#dcc86f" stroke-width="1" />
         """
     elif guide_type == "Golden Triangles":
         svg_content = """
-            <line x1="0%" y1="100%" x2="100%" y2="0%" stroke="#dcc86f" stroke-width="2" />
-            <line x1="0%" y1="0%" x2="61.8%" y2="38.2%" stroke="#dcc86f" stroke-width="2" />
-            <line x1="100%" y1="100%" x2="38.2%" y2="61.8%" stroke="#dcc86f" stroke-width="2" />
+            <line x1="0%" y1="100%" x2="100%" y2="0%" stroke="#dcc86f" stroke-width="1" />
+            <line x1="0%" y1="0%" x2="61.8%" y2="38.2%" stroke="#dcc86f" stroke-width="1" />
+            <line x1="100%" y1="100%" x2="38.2%" y2="61.8%" stroke="#dcc86f" stroke-width="1" />
         """
     elif guide_type == "Golden Section":
         svg_content = """
-            <line x1="38.2%" y1="0%" x2="38.2%" y2="100%" stroke="#dcc86f" stroke-width="2" />
-            <line x1="61.8%" y1="0%" x2="61.8%" y2="100%" stroke="#dcc86f" stroke-width="2" />
-            <line x1="0%" y1="38.2%" x2="100%" y2="38.2%" stroke="#dcc86f" stroke-width="2" />
-            <line x1="0%" y1="61.8%" x2="100%" y2="61.8%" stroke="#dcc86f" stroke-width="2" />
+            <line x1="38.2%" y1="0%" x2="38.2%" y2="100%" stroke="#dcc86f" stroke-width="1" />
+            <line x1="61.8%" y1="0%" x2="61.8%" y2="100%" stroke="#dcc86f" stroke-width="1" />
+            <line x1="0%" y1="38.2%" x2="100%" y2="38.2%" stroke="#dcc86f" stroke-width="1" />
+            <line x1="0%" y1="61.8%" x2="100%" y2="61.8%" stroke="#dcc86f" stroke-width="1" />
         """
     else:  # Default: Golden Spiral
         svg_content = """
-            <rect x="0" y="0" width="100%" height="100%" fill="none" stroke="#dcc86f" stroke-width="1.5" />
-            <path d="M 0,0 A 100 100 0 0 1 100,100 A 61.8 61.8 0 0 1 38.2,38.2 A 38.2 38.2 0 0 1 76.4,61.8" 
-                  fill="none" stroke="#dcc86f" stroke-width="2.5" vector-effect="non-scaling-stroke" />
-            <line x1="61.8%" y1="0%" x2="61.8%" y2="100%" stroke="#dcc86f" stroke-width="1" stroke-dasharray="4" />
-            <line x1="0%" y1="61.8%" x2="100%" y2="61.8%" stroke="#dcc86f" stroke-width="1" stroke-dasharray="4" />
+            <rect x="0.5%" y="0.5%" width="99%" height="99%" fill="none" stroke="#dcc86f" stroke-width="1" />
+            <line x1="61.8%" y1="0%" x2="61.8%" y2="100%" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" />
+            <line x1="0%" y1="61.8%" x2="100%" y2="61.8%" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" />
+            <path d="M 0,0 A 100 100 0 0 1 100,100 A 61.8 61.8 0 0 1 38.2,38.2 A 38.2 38.2 0 0 1 76.4,61.8 A 23.6 23.6 0 0 1 52.8,47.2" 
+                  fill="none" stroke="#dcc86f" stroke-width="1.5" vector-effect="non-scaling-stroke" />
         """
 
     viewfinder_html = f"""
@@ -115,17 +106,18 @@ def render_live_viewfinder(guide_type="Golden Spiral"):
     <html>
     <head>
         <style>
-            body {{ margin: 0; padding: 0; background-color: #0f0f0f; font-family: sans-serif; }}
-            .container {{
+            * {{ box-sizing: border-box; }}
+            body {{ margin: 0; padding: 0; background-color: #0f0f0f; font-family: sans-serif; overflow: hidden; }}
+            .frame-wrapper {{
                 position: relative;
                 width: 100%;
-                max-width: 640px;
-                margin: 0 auto;
+                max-width: 520px;
                 aspect-ratio: 4/3;
-                border-radius: 12px;
+                margin: 0 auto;
+                border-radius: 8px;
                 overflow: hidden;
-                border: 2px solid #dcc86f;
-                box-shadow: 0 4px 15px rgba(220, 200, 111, 0.2);
+                border: 1px solid #dcc86f;
+                box-shadow: 0 2px 10px rgba(220, 200, 111, 0.2);
             }}
             video {{
                 width: 100%;
@@ -143,26 +135,26 @@ def render_live_viewfinder(guide_type="Golden Spiral"):
             }}
             .badge {{
                 position: absolute;
-                top: 10px;
-                left: 10px;
-                background: rgba(15, 15, 15, 0.75);
+                top: 8px;
+                left: 8px;
+                background: rgba(15, 15, 15, 0.85);
                 color: #dcc86f;
-                padding: 4px 10px;
-                border-radius: 6px;
-                font-size: 12px;
+                padding: 3px 8px;
+                border-radius: 4px;
+                font-size: 11px;
                 font-weight: bold;
                 letter-spacing: 0.5px;
-                border: 1px solid #dcc86f;
+                border: 1px solid rgba(220, 200, 111, 0.5);
             }}
         </style>
     </head>
     <body>
-        <div class="container">
+        <div class="frame-wrapper">
             <video id="webcam" autoplay playsinline muted></video>
             <svg viewBox="0 0 100 100" preserveAspectRatio="none">
                 {svg_content}
             </svg>
-            <div class="badge">LIVE OVERLAY: {guide_type.upper()}</div>
+            <div class="badge">LIVE GUIDE: {guide_type.upper()}</div>
         </div>
 
         <script>
@@ -176,7 +168,7 @@ def render_live_viewfinder(guide_type="Golden Spiral"):
     </body>
     </html>
     """
-    components.html(viewfinder_html, height=380)
+    components.html(viewfinder_html, height=410)
 
 # ---------------------------------------------------------------------
 # Input: Camera Capture OR File Upload
@@ -186,23 +178,26 @@ input_tab, upload_tab = st.tabs(["📷 Take Photo", "🖼️ Upload Photo"])
 captured_bytes = None
 
 with input_tab:
-    st.subheader("1. Real-Time Viewfinder")
+    st.subheader("1. Real-Time Viewfinder & Capture")
     
-    col_g1, col_g2 = st.columns([1, 1])
-    with col_g1:
-        selected_live_guide = st.selectbox(
-            "Select Live Ratio Overlay",
-            ["Golden Spiral", "Rule of Thirds", "Golden Triangles", "Golden Section"],
-            index=0
-        )
+    selected_live_guide = st.selectbox(
+        "Select Composition Guide",
+        ["Golden Spiral", "Rule of Thirds", "Golden Triangles", "Golden Section"],
+        index=0
+    )
     
-    # Render Live Video Stream with SVG overlay directly on top
-    render_live_viewfinder(guide_type=selected_live_guide)
+    # Side-by-Side layout to keep the ratio guide in view while taking photo
+    cam_col1, cam_col2 = st.columns([1, 1])
     
-    st.caption("Align your shot using the live overlay above, then snap your picture below:")
-    camera_file = st.camera_input("Snap Picture")
-    if camera_file is not None:
-        captured_bytes = camera_file
+    with cam_col1:
+        st.markdown("**Live Composition Guide**")
+        render_live_viewfinder(guide_type=selected_live_guide)
+        
+    with cam_col2:
+        st.markdown("**Snap Photo**")
+        camera_file = st.camera_input("Take Picture", key="live_cam_input")
+        if camera_file is not None:
+            captured_bytes = camera_file
 
 with upload_tab:
     uploaded_file = st.file_uploader(
@@ -228,7 +223,7 @@ if captured_bytes is not None:
     sharp_grade, sharp_advice, sharpness = mentor.analyze_sharpness()
     sat_grade, sat_advice, saturation = mentor.analyze_saturation()
 
-    # Section 2: Metric Breakdown & Before/After Adjustments
+    # Section 2: Metric Breakdown & Adjustments
     st.divider()
     st.subheader("2. Metric Breakdown & Before/After Adjustments")
 
