@@ -3,9 +3,6 @@ photo_mentor.py
 ----------------
 Core analysis, composition guides (Golden Spiral, Golden Triangles, etc.),
 and image correction logic with two-way auto-fixing for exposure and saturation.
-
-(Unchanged from your original -- included here so the repo is complete and
-self-contained for deployment.)
 """
 
 import cv2
@@ -53,23 +50,17 @@ class PhotoMentor:
         avg_brightness = float(np.mean(gray_src))
         overexposed_ratio = float(np.sum(gray_src > 240)) / gray_src.size
 
-        if overexposed_ratio > 0.10:
-            target_brightness = 110.0
-        else:
-            target_brightness = 128.0
-
+        target_brightness = 110.0 if overexposed_ratio > 0.10 else 128.0
         if avg_brightness < 1.0:
             avg_brightness = 1.0
 
         gamma = np.clip(target_brightness / avg_brightness, 0.80, 1.25)
-
         inv_gamma = 1.0 / gamma
         table = np.array(
             [((i / 255.0) ** inv_gamma) * 255 for i in np.arange(0, 256)]
         ).astype("uint8")
 
         adjusted = cv2.LUT(src, table)
-
         return cv2.addWeighted(src, 0.60, adjusted, 0.40, 0)
 
     def analyze_composition(self):
@@ -174,19 +165,27 @@ class PhotoMentor:
         return fixed
 
     def _draw_golden_spiral(self, canvas, color, thickness):
+        """Dynamic golden spiral calculation that handles portrait, landscape, and arbitrary image ratios."""
         phi = 1.61803398875
-        img_aspect = self.width / self.height
+        is_portrait = self.height > self.width
 
-        if img_aspect >= phi:
+        if is_portrait:
+            rect_w = self.width
+            rect_h = int(rect_w * phi)
+            if rect_h > self.height:
+                rect_h = self.height
+                rect_w = int(rect_h / phi)
+        else:
             rect_h = self.height
             rect_w = int(rect_h * phi)
-        else:
-            rect_w = self.width
-            rect_h = int(rect_w / phi)
+            if rect_w > self.width:
+                rect_w = self.width
+                rect_h = int(rect_w / phi)
 
         x_offset = (self.width - rect_w) // 2
         y_offset = (self.height - rect_h) // 2
 
+        # Outer Bounding Rectangle
         cv2.rectangle(
             canvas,
             (x_offset, y_offset),
@@ -196,13 +195,15 @@ class PhotoMentor:
         )
 
         x, y, w, h = x_offset, y_offset, rect_w, rect_h
-        state = 0
+
+        # Orientation-aware spiral sequence
+        state = 0 if not is_portrait else 1
 
         for _ in range(8):
-            if w <= 2 or h <= 2:
+            if w <= 4 or h <= 4:
                 break
 
-            if state == 0:
+            if state == 0:  # Cut left square
                 s = min(h, w)
                 cv2.line(canvas, (x + s, y), (x + s, y + h), color, 1)
                 center = (x + s, y + h)
@@ -210,7 +211,7 @@ class PhotoMentor:
                 x += s
                 w -= s
 
-            elif state == 1:
+            elif state == 1:  # Cut top square
                 s = min(w, h)
                 cv2.line(canvas, (x, y + s), (x + w, y + s), color, 1)
                 center = (x, y + s)
@@ -218,14 +219,14 @@ class PhotoMentor:
                 y += s
                 h -= s
 
-            elif state == 2:
+            elif state == 2:  # Cut right square
                 s = min(h, w)
                 cv2.line(canvas, (x + w - s, y), (x + w - s, y + h), color, 1)
                 center = (x + w - s, y)
                 cv2.ellipse(canvas, center, (s, s), 0, 0, 90, color, thickness)
                 w -= s
 
-            elif state == 3:
+            elif state == 3:  # Cut bottom square
                 s = min(w, h)
                 cv2.line(canvas, (x, y + h - s), (x + w, y + h - s), color, 1)
                 center = (x + w, y + h - s)
@@ -268,7 +269,7 @@ class PhotoMentor:
             cv2.line(canvas, (w_ratio, 0), (w_ratio, self.height), color, thickness)
             cv2.line(canvas, (self.width - w_ratio, 0), (self.width - w_ratio, self.height), color, thickness)
             cv2.line(canvas, (0, h_ratio), (self.width, h_ratio), color, thickness)
-            cv2.line(canvas, (0, self.height - h_ratio), (self.width, self.height - h_ratio), color, thickness)
+            cv2.line(canvas, (0, self.height - h_ratio), (self.width, h_ratio), color, thickness)
 
         elif guide_type == "Golden Section":
             x1, x2 = int(self.width * 0.382), int(self.width * 0.618)
