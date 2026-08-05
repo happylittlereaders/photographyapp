@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Uploaded / generated images (don't commit test photos or others' copyrighted images)
+temp_upload.jpg
+rule_of_thirds_preview.jpg
+*.jpg
+*.jpeg
+*.png
+!assets/**
+!static/icons/**
+
+# OS / editor junk
+.DS_Store
+.idea/
+.vscode/
