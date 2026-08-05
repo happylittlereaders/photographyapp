@@ -2,7 +2,8 @@
 photo_mentor.py
 ----------------
 Core analysis, composition guides (Golden Spiral, Golden Triangles, etc.),
-and image correction logic with two-way auto-fixing for exposure and saturation.
+and image correction logic with two-way auto-fixing for exposure and saturation,
+plus photographer style transfer capability.
 """
 
 import cv2
@@ -25,6 +26,9 @@ class PhotoMentor:
         self.hsv = cv2.cvtColor(self.img, cv2.COLOR_BGR2HSV)
         self.height, self.width = self.gray.shape
 
+    # -----------------------------------------------------------------
+    # Metric Analysis Methods
+    # -----------------------------------------------------------------
     def analyze_exposure(self):
         avg_brightness = float(np.mean(self.gray))
         overexposed_ratio = float(np.sum(self.gray > 240)) / self.gray.size
@@ -164,6 +168,65 @@ class PhotoMentor:
         fixed = self.fix_saturation(fixed)
         return fixed
 
+    # -----------------------------------------------------------------
+    # Photographer Style Transfer Engine
+    # -----------------------------------------------------------------
+    def apply_photographer_style(self, base_image, style_config):
+        """
+        Applies aesthetic styling (contrast, color grading, monochrome, grain, vignette)
+        matching selected photographer presets.
+        """
+        img = base_image.copy().astype(np.float32)
+        
+        contrast = style_config.get("contrast_factor", 1.0)
+        sat_mult = style_config.get("saturation_factor", 1.0)
+        monochrome = style_config.get("monochrome", False)
+        grain = style_config.get("grain", False)
+        vignette = style_config.get("vignette", False)
+        warmth = style_config.get("warmth", 0.0)
+        cool_shadows = style_config.get("cool_shadows", False)
+
+        # 1. Apply Contrast & Warmth / Shadow Tints
+        img = (img - 127.5) * contrast + 127.5
+        if warmth != 0.0:
+            img[:, :, 2] += warmth * 15  # Red channel boost
+            img[:, :, 0] -= warmth * 10  # Blue channel pull
+        
+        if cool_shadows:
+            shadow_mask = np.clip((128.0 - img) / 128.0, 0, 1)
+            img[:, :, 0] += shadow_mask[:, :, 0] * 18.0  # Blue boost in shadows
+
+        img = np.clip(img, 0, 255).astype(np.uint8)
+
+        # 2. Saturation & Monochrome Adjustment
+        if monochrome:
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            img = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+        elif sat_mult != 1.0:
+            hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV).astype(np.float32)
+            hsv[:, :, 1] = np.clip(hsv[:, :, 1] * sat_mult, 0, 255)
+            img = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2BGR)
+
+        # 3. Add Film Grain
+        if grain:
+            noise = np.random.normal(0, 12, img.shape).astype(np.float32)
+            img = np.clip(img.astype(np.float32) + noise, 0, 255).astype(np.uint8)
+
+        # 4. Apply Vignette Effect
+        if vignette:
+            rows, cols = img.shape[:2]
+            kernel_x = cv2.getGaussianKernel(cols, cols * 0.5)
+            kernel_y = cv2.getGaussianKernel(rows, rows * 0.5)
+            kernel = kernel_y * kernel_x.T
+            mask = kernel / kernel.max()
+            mask = np.dstack([mask] * 3)
+            img = (img * (0.4 + 0.6 * mask)).astype(np.uint8)
+
+        return img
+
+    # -----------------------------------------------------------------
+    # Viewfinder Composition Overlays (Static Output)
+    # -----------------------------------------------------------------
     def _draw_golden_spiral(self, canvas, color, thickness):
         """Dynamic golden spiral calculation that handles portrait, landscape, and arbitrary image ratios."""
         phi = 1.61803398875
