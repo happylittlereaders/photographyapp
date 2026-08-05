@@ -2,8 +2,8 @@
 photo_mentor.py
 ----------------
 Core analysis, composition guides (Golden Spiral, Golden Triangles, etc.),
-and image correction logic with two-way auto-fixing for exposure and saturation,
-plus photographer style transfer capability.
+and image correction logic with preset-aware auto-fixing for exposure,
+sharpness, composition, and saturation.
 """
 
 import cv2
@@ -27,7 +27,7 @@ class PhotoMentor:
         self.height, self.width = self.gray.shape
 
     # -----------------------------------------------------------------
-    # Metric Analysis Methods
+    # Metric Analysis & Individual Style-Aware Fixes
     # -----------------------------------------------------------------
     def analyze_exposure(self):
         avg_brightness = float(np.mean(self.gray))
@@ -48,24 +48,28 @@ class PhotoMentor:
 
         return grade, advice, avg_brightness
 
-    def fix_exposure(self, img_bgr=None):
+    def fix_exposure(self, img_bgr=None, style_config=None):
+        """Fixes exposure, factoring in preset contrast preferences if provided."""
         src = self.img if img_bgr is None else img_bgr
         gray_src = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
         avg_brightness = float(np.mean(gray_src))
         overexposed_ratio = float(np.sum(gray_src > 240)) / gray_src.size
 
-        target_brightness = 110.0 if overexposed_ratio > 0.10 else 128.0
+        # Target brightness shifts slightly depending on style contrast
+        contrast_mod = style_config.get("contrast_factor", 1.0) if style_config else 1.0
+        target_brightness = (110.0 if overexposed_ratio > 0.10 else 128.0) * (2.0 - contrast_mod * 0.8)
+        
         if avg_brightness < 1.0:
             avg_brightness = 1.0
 
-        gamma = np.clip(target_brightness / avg_brightness, 0.80, 1.25)
+        gamma = np.clip(target_brightness / avg_brightness, 0.70, 1.35)
         inv_gamma = 1.0 / gamma
         table = np.array(
             [((i / 255.0) ** inv_gamma) * 255 for i in np.arange(0, 256)]
         ).astype("uint8")
 
         adjusted = cv2.LUT(src, table)
-        return cv2.addWeighted(src, 0.60, adjusted, 0.40, 0)
+        return cv2.addWeighted(src, 0.50, adjusted, 0.50, 0)
 
     def analyze_composition(self):
         edges = cv2.Canny(self.gray, 50, 150)
@@ -122,15 +126,17 @@ class PhotoMentor:
 
         return grade, advice, sharpness
 
-    def fix_sharpness(self, img_bgr=None):
+    def fix_sharpness(self, img_bgr=None, style_config=None):
+        """Fixes sharpness with optional grain/contrast tuning per preset."""
         src = self.img if img_bgr is None else img_bgr
         grade, _, _ = self.analyze_sharpness()
 
-        if grade != "Possibly blurry":
-            return src.copy()
-
+        # Boost strength if grain or high contrast is part of the photographer's signature
+        sharp_factor = 1.25 if style_config and style_config.get("grain", False) else 1.15
+        
         blurred = cv2.GaussianBlur(src, (0, 0), 2.0)
-        return cv2.addWeighted(src, 1.15, blurred, -0.15, 0)
+        fixed = cv2.addWeighted(src, sharp_factor, blurred, -(sharp_factor - 1.0), 0)
+        return fixed
 
     def analyze_saturation(self):
         avg_saturation = float(np.mean(self.hsv[:, :, 1]))
@@ -147,25 +153,29 @@ class PhotoMentor:
 
         return grade, advice, avg_saturation
 
-    def fix_saturation(self, img_bgr=None):
+    def fix_saturation(self, img_bgr=None, style_config=None):
+        """Fixes color saturation, respecting preset monochrome or saturation factors."""
         src = self.img if img_bgr is None else img_bgr
+        
+        # If preset is monochrome, render greyscale directly
+        if style_config and style_config.get("monochrome", False):
+            gray = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
+            return cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+
         hsv = cv2.cvtColor(src, cv2.COLOR_BGR2HSV)
         h, s, v = cv2.split(hsv)
 
-        avg_sat = np.mean(s)
-        if avg_sat < 30:
-            s = cv2.add(s, 25)
-        elif avg_sat > 180:
-            s = cv2.subtract(s, 30)
+        target_mult = style_config.get("saturation_factor", 1.0) if style_config else 1.0
+        s = np.clip(s.astype(np.float32) * target_mult, 0, 255).astype(np.uint8)
 
         fixed_hsv = cv2.merge((h, s, v))
         return cv2.cvtColor(fixed_hsv, cv2.COLOR_HSV2BGR)
 
-    def generate_master_fixed_image(self):
-        fixed = self.fix_exposure(self.img)
+    def generate_master_fixed_image(self, style_config=None):
+        fixed = self.fix_exposure(self.img, style_config)
         fixed = self.fix_composition(fixed)
-        fixed = self.fix_sharpness(fixed)
-        fixed = self.fix_saturation(fixed)
+        fixed = self.fix_sharpness(fixed, style_config)
+        fixed = self.fix_saturation(fixed, style_config)
         return fixed
 
     # -----------------------------------------------------------------
@@ -225,10 +235,9 @@ class PhotoMentor:
         return img
 
     # -----------------------------------------------------------------
-    # Viewfinder Composition Overlays (Static Output)
+    # Viewfinder Composition Overlays
     # -----------------------------------------------------------------
     def _draw_golden_spiral(self, canvas, color, thickness):
-        """Dynamic golden spiral calculation that handles portrait, landscape, and arbitrary image ratios."""
         phi = 1.61803398875
         is_portrait = self.height > self.width
 
@@ -248,7 +257,6 @@ class PhotoMentor:
         x_offset = (self.width - rect_w) // 2
         y_offset = (self.height - rect_h) // 2
 
-        # Outer Bounding Rectangle
         cv2.rectangle(
             canvas,
             (x_offset, y_offset),
@@ -258,38 +266,33 @@ class PhotoMentor:
         )
 
         x, y, w, h = x_offset, y_offset, rect_w, rect_h
-
-        # Orientation-aware spiral sequence
         state = 0 if not is_portrait else 1
 
         for _ in range(8):
             if w <= 4 or h <= 4:
                 break
 
-            if state == 0:  # Cut left square
+            if state == 0:
                 s = min(h, w)
                 cv2.line(canvas, (x + s, y), (x + s, y + h), color, 1)
                 center = (x + s, y + h)
                 cv2.ellipse(canvas, center, (s, s), 0, 180, 270, color, thickness)
                 x += s
                 w -= s
-
-            elif state == 1:  # Cut top square
+            elif state == 1:
                 s = min(w, h)
                 cv2.line(canvas, (x, y + s), (x + w, y + s), color, 1)
                 center = (x, y + s)
                 cv2.ellipse(canvas, center, (s, s), 0, 270, 360, color, thickness)
                 y += s
                 h -= s
-
-            elif state == 2:  # Cut right square
+            elif state == 2:
                 s = min(h, w)
                 cv2.line(canvas, (x + w - s, y), (x + w - s, y + h), color, 1)
                 center = (x + w - s, y)
                 cv2.ellipse(canvas, center, (s, s), 0, 0, 90, color, thickness)
                 w -= s
-
-            elif state == 3:  # Cut bottom square
+            elif state == 3:
                 s = min(w, h)
                 cv2.line(canvas, (x, y + h - s), (x + w, y + h - s), color, 1)
                 center = (x + w, y + h - s)
@@ -300,7 +303,7 @@ class PhotoMentor:
 
     def draw_composition_guide(self, guide_type="Golden Spiral"):
         canvas = self.img.copy()
-        color = (111, 200, 220)  # Hex #dcc86f in BGR
+        color = (111, 200, 220)
         thickness = 2
 
         if guide_type == "Rule of Thirds":
@@ -308,36 +311,28 @@ class PhotoMentor:
             for i in (1, 2):
                 cv2.line(canvas, (0, i * h_step), (self.width, i * h_step), color, thickness)
                 cv2.line(canvas, (i * w_step, 0), (i * w_step, self.height), color, thickness)
-
         elif guide_type in ("Golden Spiral", "Golden Ratio"):
             self._draw_golden_spiral(canvas, color, thickness)
-
         elif guide_type == "Golden Triangles":
             cv2.line(canvas, (0, self.height), (self.width, 0), color, thickness)
             w_sq = float(self.width ** 2)
             h_sq = float(self.height ** 2)
             denom = w_sq + h_sq
-
             x_p1 = int((self.width * h_sq) / denom)
             y_p1 = int((w_sq * self.height) / denom)
-
             cv2.line(canvas, (0, 0), (x_p1, y_p1), color, thickness)
             cv2.line(canvas, (self.width, self.height), (self.width - x_p1, self.height - y_p1), color, thickness)
-
         elif guide_type == "Golden Ratio Grid":
             phi = 1.618
             w_ratio = int(self.width / (1 + phi))
             h_ratio = int(self.height / (1 + phi))
-
             cv2.line(canvas, (w_ratio, 0), (w_ratio, self.height), color, thickness)
             cv2.line(canvas, (self.width - w_ratio, 0), (self.width - w_ratio, self.height), color, thickness)
             cv2.line(canvas, (0, h_ratio), (self.width, h_ratio), color, thickness)
             cv2.line(canvas, (0, self.height - h_ratio), (self.width, h_ratio), color, thickness)
-
         elif guide_type == "Golden Section":
             x1, x2 = int(self.width * 0.382), int(self.width * 0.618)
             y1, y2 = int(self.height * 0.382), int(self.height * 0.618)
-
             cv2.line(canvas, (x1, 0), (x1, self.height), color, thickness)
             cv2.line(canvas, (x2, 0), (x2, self.height), color, thickness)
             cv2.line(canvas, (0, y1), (self.width, y1), color, thickness)
