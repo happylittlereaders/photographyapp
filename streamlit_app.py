@@ -2,7 +2,7 @@
 streamlit_app.py
 -----------------
 Web UI for "Golden Number" photography evaluation app.
-Features real-time camera viewfinder with mathematically accurate Golden Ratio overlays.
+Features real-time camera viewfinders, photographer dataset presets, and automatic style transfers.
 """
 
 import streamlit as st
@@ -61,37 +61,155 @@ st.markdown("<h1 class='main-title'>✨ Golden Number</h1>", unsafe_allow_html=T
 st.markdown("<div class='brand-accent-bar'></div>", unsafe_allow_html=True)
 
 st.write(
-    "Use the live interactive viewfinder to align your frame with precise composition guides in real-time, "
-    "then capture or upload a photo for computer vision analysis and auto-corrections."
+    "Select a legendary photographer profile or use the default dataset. "
+    "Align your composition using real-time dynamic overlays, then analyze and auto-correct your image into that photographer's signature style!"
 )
 
 # ---------------------------------------------------------------------
-# Helper: Precise Live Viewfinder Component (Golden Ratio Aspect Frame)
+# Expanded Photographer Presets Configuration
 # ---------------------------------------------------------------------
-def render_live_viewfinder(guide_type="Golden Spiral"):
-    """Generates a responsive HTML5 video stream with accurate composition overlay guides."""
+PHOTOGRAPHER_PRESETS = {
+    "Default (Golden Ratio)": {
+        "aspect_ratio": "1.618 / 1",
+        "viewbox": "0 0 1000 618.034",
+        "default_guide": "Golden Spiral",
+        "description": "Standard golden ratio framing ($1.618:1$) with balanced, realistic post-processing.",
+        "style_config": {
+            "contrast_factor": 1.05,
+            "saturation_factor": 1.1,
+            "monochrome": False,
+            "grain": False,
+            "vignette": False,
+            "warmth": 0.0
+        }
+    },
+    "Dorothea Lange": {
+        "aspect_ratio": "4 / 3",
+        "viewbox": "0 0 1000 750",
+        "default_guide": "Rule of Thirds",
+        "description": "Humanist documentary pioneer ($4:3$ ratio). Deep B&W tonal gradation, lifted shadow detail, and storytelling focus.",
+        "style_config": {
+            "contrast_factor": 1.2,
+            "saturation_factor": 0.0,
+            "monochrome": True,
+            "grain": True,
+            "vignette": True,
+            "warmth": 0.0
+        }
+    },
+    "Vivian Maier": {
+        "aspect_ratio": "1 / 1",
+        "viewbox": "0 0 800 800",
+        "default_guide": "Golden Section",
+        "description": "Iconic street portraitist ($1:1$ medium format Rolleiflex ratio). Punchy black & white with medium film grain.",
+        "style_config": {
+            "contrast_factor": 1.3,
+            "saturation_factor": 0.0,
+            "monochrome": True,
+            "grain": True,
+            "vignette": False,
+            "warmth": 0.0
+        }
+    },
+    "Annie Leibovitz": {
+        "aspect_ratio": "3 / 2",
+        "viewbox": "0 0 900 600",
+        "default_guide": "Golden Section",
+        "description": "Dramatic editorial portraiture ($3:2$ ratio). Cinematic contrast, rich cool shadows, and high color depth.",
+        "style_config": {
+            "contrast_factor": 1.35,
+            "saturation_factor": 1.25,
+            "monochrome": False,
+            "grain": False,
+            "vignette": True,
+            "cool_shadows": True
+        }
+    },
+    "Henri Cartier-Bresson": {
+        "aspect_ratio": "3 / 2",
+        "viewbox": "0 0 900 600",
+        "default_guide": "Golden Triangles",
+        "description": "Street photography pioneer ($3:2$ Leica ratio). High-contrast, candid monochrome with geometric precision.",
+        "style_config": {
+            "contrast_factor": 1.35,
+            "saturation_factor": 0.0,
+            "monochrome": True,
+            "grain": True,
+            "vignette": False,
+            "warmth": 0.0
+        }
+    },
+    "Ansel Adams": {
+        "aspect_ratio": "5 / 4",
+        "viewbox": "0 0 1000 800",
+        "default_guide": "Rule of Thirds",
+        "description": "Large-format landscape master ($5:4$ view camera ratio). Deep Zone System blacks, crisp highlights, and vignetting.",
+        "style_config": {
+            "contrast_factor": 1.50,
+            "saturation_factor": 0.0,
+            "monochrome": True,
+            "grain": False,
+            "vignette": True,
+            "warmth": 0.0
+        }
+    },
+    "Steve McCurry": {
+        "aspect_ratio": "3 / 2",
+        "viewbox": "0 0 900 600",
+        "default_guide": "Golden Section",
+        "description": "Vibrant narrative photojournalism ($3:2$ ratio). Rich saturation, deep warm tones, and strong subject emphasis.",
+        "style_config": {
+            "contrast_factor": 1.25,
+            "saturation_factor": 1.45,
+            "monochrome": False,
+            "grain": False,
+            "vignette": True,
+            "warmth": 1.2
+        }
+    }
+}
+
+# Select Preset
+selected_preset_name = st.selectbox(
+    "📸 Choose Photographer Style / Dataset",
+    list(PHOTOGRAPHER_PRESETS.keys()),
+    index=0
+)
+
+active_preset = PHOTOGRAPHER_PRESETS[selected_preset_name]
+st.info(f"**Style Note:** {active_preset['description']}")
+
+# ---------------------------------------------------------------------
+# Helper: Precise Dynamic Viewfinder Component
+# ---------------------------------------------------------------------
+def render_live_viewfinder(guide_type="Golden Spiral", aspect_ratio="1.618 / 1", viewbox="0 0 1000 618.034"):
+    """Generates a responsive HTML5 camera stream with dynamically formatted composition guides."""
     
+    # Extract dimensions from viewbox string
+    vb_parts = [float(val) for val in viewbox.split()]
+    vb_w, vb_h = vb_parts[2], vb_parts[3]
+
     if guide_type == "Rule of Thirds":
-        svg_content = """
-            <line x1="333.33" y1="0" x2="333.33" y2="618.03" stroke="#dcc86f" stroke-width="1" />
-            <line x1="666.66" y1="0" x2="666.66" y2="618.03" stroke="#dcc86f" stroke-width="1" />
-            <line x1="0" y1="206.01" x2="1000" y2="206.01" stroke="#dcc86f" stroke-width="1" />
-            <line x1="0" y1="412.02" x2="1000" y2="412.02" stroke="#dcc86f" stroke-width="1" />
+        svg_content = f"""
+            <line x1="{vb_w * 0.333}" y1="0" x2="{vb_w * 0.333}" y2="{vb_h}" stroke="#dcc86f" stroke-width="1" />
+            <line x1="{vb_w * 0.666}" y1="0" x2="{vb_w * 0.666}" y2="{vb_h}" stroke="#dcc86f" stroke-width="1" />
+            <line x1="0" y1="{vb_h * 0.333}" x2="{vb_w}" y2="{vb_h * 0.333}" stroke="#dcc86f" stroke-width="1" />
+            <line x1="0" y1="{vb_h * 0.666}" x2="{vb_w}" y2="{vb_h * 0.666}" stroke="#dcc86f" stroke-width="1" />
         """
     elif guide_type == "Golden Triangles":
-        svg_content = """
-            <line x1="0" y1="618.03" x2="1000" y2="0" stroke="#dcc86f" stroke-width="1" />
-            <line x1="0" y1="0" x2="276.4" y2="447.2" stroke="#dcc86f" stroke-width="1" />
-            <line x1="1000" y1="618.03" x2="723.6" y2="170.8" stroke="#dcc86f" stroke-width="1" />
+        svg_content = f"""
+            <line x1="0" y1="{vb_h}" x2="{vb_w}" y2="0" stroke="#dcc86f" stroke-width="1" />
+            <line x1="0" y1="0" x2="{vb_w * 0.276}" y2="{vb_h * 0.723}" stroke="#dcc86f" stroke-width="1" />
+            <line x1="{vb_w}" y1="{vb_h}" x2="{vb_w * 0.723}" y2="{vb_h * 0.276}" stroke="#dcc86f" stroke-width="1" />
         """
     elif guide_type == "Golden Section":
-        svg_content = """
-            <line x1="381.97" y1="0" x2="381.97" y2="618.03" stroke="#dcc86f" stroke-width="1" />
-            <line x1="618.03" y1="0" x2="618.03" y2="618.03" stroke="#dcc86f" stroke-width="1" />
-            <line x1="0" y1="236.07" x2="1000" y2="236.07" stroke="#dcc86f" stroke-width="1" />
-            <line x1="0" y1="381.97" x2="1000" y2="381.97" stroke="#dcc86f" stroke-width="1" />
+        svg_content = f"""
+            <line x1="{vb_w * 0.382}" y1="0" x2="{vb_w * 0.382}" y2="{vb_h}" stroke="#dcc86f" stroke-width="1" />
+            <line x1="{vb_w * 0.618}" y1="0" x2="{vb_w * 0.618}" y2="{vb_h}" stroke="#dcc86f" stroke-width="1" />
+            <line x1="0" y1="{vb_h * 0.382}" x2="{vb_w}" y2="{vb_h * 0.382}" stroke="#dcc86f" stroke-width="1" />
+            <line x1="0" y1="{vb_h * 0.618}" x2="{vb_w}" y2="{vb_h * 0.618}" stroke="#dcc86f" stroke-width="1" />
         """
-    else:  # Default: Golden Spiral (True 1000x618.034 with Extended Inner Subsquares)
+    else:  # Default: Golden Spiral (True 1000x618.034 Extended Subsquares)
         svg_content = """
             <line x1="618.03" y1="0" x2="618.03" y2="618.03" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
             <line x1="618.03" y1="381.97" x2="1000" y2="381.97" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
@@ -128,9 +246,8 @@ def render_live_viewfinder(guide_type="Golden Spiral"):
             .frame-wrapper {{
                 position: relative;
                 width: 100%;
-                max-width: 560px;
-                /* Locked to Golden Ratio Aspect (1.618 : 1) */
-                aspect-ratio: 1.618 / 1;
+                max-width: 500px;
+                aspect-ratio: {aspect_ratio};
                 margin: 0 auto;
                 border-radius: 8px;
                 overflow: hidden;
@@ -168,10 +285,10 @@ def render_live_viewfinder(guide_type="Golden Spiral"):
     <body>
         <div class="frame-wrapper">
             <video id="webcam" autoplay playsinline muted></video>
-            <svg viewBox="0 0 1000 618.034" preserveAspectRatio="none">
+            <svg viewBox="{viewbox}" preserveAspectRatio="none">
                 {svg_content}
             </svg>
-            <div class="badge">LIVE GUIDE: {guide_type.upper()}</div>
+            <div class="badge">PRESET: {selected_preset_name.upper()} ({guide_type.upper()})</div>
         </div>
 
         <script>
@@ -185,7 +302,7 @@ def render_live_viewfinder(guide_type="Golden Spiral"):
     </body>
     </html>
     """
-    components.html(viewfinder_html, height=380)
+    components.html(viewfinder_html, height=420)
 
 # ---------------------------------------------------------------------
 # Input: Camera Capture OR File Upload
@@ -194,21 +311,28 @@ input_tab, upload_tab = st.tabs(["📷 Take Photo", "🖼️ Upload Photo"])
 
 captured_bytes = None
 
+default_guide_idx = ["Golden Spiral", "Rule of Thirds", "Golden Triangles", "Golden Section"].index(
+    active_preset.get("default_guide", "Golden Spiral")
+)
+
 with input_tab:
     st.subheader("1. Real-Time Viewfinder & Capture")
     
     selected_live_guide = st.selectbox(
         "Select Composition Guide",
         ["Golden Spiral", "Rule of Thirds", "Golden Triangles", "Golden Section"],
-        index=0
+        index=default_guide_idx
     )
     
-    # Side-by-Side layout keeps the ratio guide visible alongside the camera control
     cam_col1, cam_col2 = st.columns([1, 1])
     
     with cam_col1:
         st.markdown("**Live Composition Guide**")
-        render_live_viewfinder(guide_type=selected_live_guide)
+        render_live_viewfinder(
+            guide_type=selected_live_guide,
+            aspect_ratio=active_preset["aspect_ratio"],
+            viewbox=active_preset["viewbox"]
+        )
         
     with cam_col2:
         st.markdown("**Snap Photo**")
@@ -234,7 +358,7 @@ if captured_bytes is not None:
 
     mentor = PhotoMentor(temp_path)
 
-    # Perform calculations
+    # Perform metric calculations
     exp_grade, exp_advice, brightness = mentor.analyze_exposure()
     comp_grade, comp_advice, tilt = mentor.analyze_composition()
     sharp_grade, sharp_advice, sharpness = mentor.analyze_sharpness()
@@ -242,7 +366,7 @@ if captured_bytes is not None:
 
     # Section 2: Metric Breakdown & Adjustments
     st.divider()
-    st.subheader("2. Metric Breakdown & Before/After Adjustments")
+    st.subheader("2. Metric Breakdown & Standard Auto-Fixes")
 
     def display_metric_section(title, grade, advice, metric_label, metric_value, is_imperfect, fix_func):
         st.markdown(f"### {title}: **{grade}**")
@@ -288,26 +412,27 @@ if captured_bytes is not None:
         "Color Saturation", sat_grade, sat_advice, "Avg saturation (0-255)", saturation, sat_imperfect, mentor.fix_saturation
     )
 
-    # Master Output Section (Clean Output - No Overlay)
-    st.subheader("3. Master Corrected Result")
-    st.write("Below is the final clean image output combining all auto-corrections.")
+    # Section 3: Master Corrected & Styled Result
+    st.subheader(f"3. Master Result: {selected_preset_name} Style")
+    st.write(f"Combines general technical corrections with color grading tailored to **{selected_preset_name}**.")
 
     master_fixed_bgr = mentor.generate_master_fixed_image()
-    master_fixed_rgb = cv2.cvtColor(master_fixed_bgr, cv2.COLOR_BGR2RGB)
+    styled_bgr = mentor.apply_photographer_style(master_fixed_bgr, active_preset["style_config"])
+    styled_rgb = cv2.cvtColor(styled_bgr, cv2.COLOR_BGR2RGB)
 
     m_col1, m_col2 = st.columns(2)
     with m_col1:
         st.image(pil_image, caption="Original Photo", use_container_width=True)
     with m_col2:
-        st.image(master_fixed_rgb, caption="Final Corrected Image", use_container_width=True)
+        st.image(styled_rgb, caption=f"Final Output ({selected_preset_name} Preset)", use_container_width=True)
 
     # Download Button
-    success, encoded_img = cv2.imencode(".jpg", master_fixed_bgr)
+    success, encoded_img = cv2.imencode(".jpg", styled_bgr)
     if success:
         st.download_button(
-            label="⬇️ Download corrected photo",
+            label=f"⬇️ Download {selected_preset_name} styled photo",
             data=encoded_img.tobytes(),
-            file_name="golden_number_corrected.jpg",
+            file_name=f"golden_number_{selected_preset_name.lower().replace(' ', '_')}.jpg",
             mime="image/jpeg",
         )
 
