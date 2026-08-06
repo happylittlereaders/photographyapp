@@ -2,8 +2,7 @@
 photo_mentor.py
 ----------------
 Core analysis, composition guides (Golden Spiral, Golden Triangles, etc.),
-and image correction logic with preset-aware auto-fixing for exposure,
-sharpness, composition, and saturation.
+aspect ratio conforming, and image correction logic tailored for photographer presets.
 """
 
 import cv2
@@ -13,7 +12,7 @@ import numpy as np
 class PhotoMentor:
     """Runs computer-vision checks and applies automatic fixes to photos."""
 
-    def __init__(self, image_path: str):
+    def __init__(self, image_path: str, target_aspect_ratio_str: str = None):
         self.image_path = image_path
         self.img = cv2.imread(image_path)
         if self.img is None:
@@ -22,9 +21,41 @@ class PhotoMentor:
                 "Check the path and make sure it's a valid image file."
             )
 
+        # Conform image aspect ratio to photographer preset if provided
+        if target_aspect_ratio_str:
+            self.img = self._crop_to_aspect_ratio(self.img, target_aspect_ratio_str)
+
         self.gray = cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY)
         self.hsv = cv2.cvtColor(self.img, cv2.COLOR_BGR2HSV)
         self.height, self.width = self.gray.shape
+
+    # -----------------------------------------------------------------
+    # Aspect Ratio Conforming Engine
+    # -----------------------------------------------------------------
+    def _crop_to_aspect_ratio(self, img, aspect_ratio_str: str):
+        """Center-crops the image to match a target aspect ratio string (e.g., '4 / 3', '1 / 1')."""
+        try:
+            num, den = aspect_ratio_str.split("/")
+            target_ratio = float(num.strip()) / float(den.strip())
+        except Exception:
+            return img
+
+        h, w = img.shape[:2]
+        current_ratio = w / h
+
+        if abs(current_ratio - target_ratio) < 0.01:
+            return img  # Already matching ratio
+
+        if current_ratio > target_ratio:
+            # Image is wider than target -> Crop sides
+            new_w = int(h * target_ratio)
+            offset = (w - new_w) // 2
+            return img[:, offset:offset + new_w]
+        else:
+            # Image is taller than target -> Crop top/bottom
+            new_h = int(w / target_ratio)
+            offset = (h - new_h) // 2
+            return img[offset:offset + new_h, :]
 
     # -----------------------------------------------------------------
     # Metric Analysis & Individual Style-Aware Fixes
@@ -49,13 +80,11 @@ class PhotoMentor:
         return grade, advice, avg_brightness
 
     def fix_exposure(self, img_bgr=None, style_config=None):
-        """Fixes exposure, factoring in preset contrast preferences if provided."""
         src = self.img if img_bgr is None else img_bgr
         gray_src = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
         avg_brightness = float(np.mean(gray_src))
         overexposed_ratio = float(np.sum(gray_src > 240)) / gray_src.size
 
-        # Target brightness shifts slightly depending on style contrast
         contrast_mod = style_config.get("contrast_factor", 1.0) if style_config else 1.0
         target_brightness = (110.0 if overexposed_ratio > 0.10 else 128.0) * (2.0 - contrast_mod * 0.8)
         
@@ -127,16 +156,12 @@ class PhotoMentor:
         return grade, advice, sharpness
 
     def fix_sharpness(self, img_bgr=None, style_config=None):
-        """Fixes sharpness with optional grain/contrast tuning per preset."""
         src = self.img if img_bgr is None else img_bgr
         grade, _, _ = self.analyze_sharpness()
 
-        # Boost strength if grain or high contrast is part of the photographer's signature
         sharp_factor = 1.25 if style_config and style_config.get("grain", False) else 1.15
-        
         blurred = cv2.GaussianBlur(src, (0, 0), 2.0)
-        fixed = cv2.addWeighted(src, sharp_factor, blurred, -(sharp_factor - 1.0), 0)
-        return fixed
+        return cv2.addWeighted(src, sharp_factor, blurred, -(sharp_factor - 1.0), 0)
 
     def analyze_saturation(self):
         avg_saturation = float(np.mean(self.hsv[:, :, 1]))
@@ -154,10 +179,8 @@ class PhotoMentor:
         return grade, advice, avg_saturation
 
     def fix_saturation(self, img_bgr=None, style_config=None):
-        """Fixes color saturation, respecting preset monochrome or saturation factors."""
         src = self.img if img_bgr is None else img_bgr
         
-        # If preset is monochrome, render greyscale directly
         if style_config and style_config.get("monochrome", False):
             gray = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
             return cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
@@ -182,10 +205,6 @@ class PhotoMentor:
     # Photographer Style Transfer Engine
     # -----------------------------------------------------------------
     def apply_photographer_style(self, base_image, style_config):
-        """
-        Applies aesthetic styling (contrast, color grading, monochrome, grain, vignette)
-        matching selected photographer presets.
-        """
         img = base_image.copy().astype(np.float32)
         
         contrast = style_config.get("contrast_factor", 1.0)
@@ -196,19 +215,19 @@ class PhotoMentor:
         warmth = style_config.get("warmth", 0.0)
         cool_shadows = style_config.get("cool_shadows", False)
 
-        # 1. Apply Contrast & Warmth / Shadow Tints
+        # 1. Contrast & Tonal Tints
         img = (img - 127.5) * contrast + 127.5
         if warmth != 0.0:
-            img[:, :, 2] += warmth * 15  # Red channel boost
-            img[:, :, 0] -= warmth * 10  # Blue channel pull
+            img[:, :, 2] += warmth * 15
+            img[:, :, 0] -= warmth * 10
         
         if cool_shadows:
             shadow_mask = np.clip((128.0 - img) / 128.0, 0, 1)
-            img[:, :, 0] += shadow_mask[:, :, 0] * 18.0  # Blue boost in shadows
+            img[:, :, 0] += shadow_mask[:, :, 0] * 18.0
 
         img = np.clip(img, 0, 255).astype(np.uint8)
 
-        # 2. Saturation & Monochrome Adjustment
+        # 2. Saturation & Monochrome
         if monochrome:
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             img = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
@@ -217,12 +236,12 @@ class PhotoMentor:
             hsv[:, :, 1] = np.clip(hsv[:, :, 1] * sat_mult, 0, 255)
             img = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2BGR)
 
-        # 3. Add Film Grain
+        # 3. Film Grain
         if grain:
             noise = np.random.normal(0, 12, img.shape).astype(np.float32)
             img = np.clip(img.astype(np.float32) + noise, 0, 255).astype(np.uint8)
 
-        # 4. Apply Vignette Effect
+        # 4. Vignette Effect
         if vignette:
             rows, cols = img.shape[:2]
             kernel_x = cv2.getGaussianKernel(cols, cols * 0.5)
@@ -268,8 +287,9 @@ class PhotoMentor:
         x, y, w, h = x_offset, y_offset, rect_w, rect_h
         state = 0 if not is_portrait else 1
 
-        for _ in range(8):
-            if w <= 4 or h <= 4:
+        # Generates 12 sub-squares for deeper spiral precision
+        for _ in range(12):
+            if w <= 2 or h <= 2:
                 break
 
             if state == 0:
