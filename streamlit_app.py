@@ -212,26 +212,33 @@ def show_guide_dialog(guide_name):
             <circle cx="{vb_w * 0.382}" cy="{vb_h * 0.618}" r="8" fill="#dcc86f" />
             <circle cx="{vb_w * 0.618}" cy="{vb_h * 0.618}" r="8" fill="#dcc86f" />
         """
-    else:  # Golden Spiral (Calculated cleanly using proportions of viewBox width & height)
-        w, h = vb_w, vb_h
-        svg_overlay = f"""
-            <line x1="{w*0.618}" y1="0" x2="{w*0.618}" y2="{h}" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.8" />
-            <line x1="{w*0.618}" y1="{h*0.618}" x2="{w}" y2="{h*0.618}" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.8" />
-            <line x1="{w*0.764}" y1="{h*0.618}" x2="{w*0.764}" y2="{h}" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.8" />
-            <line x1="{w*0.618}" y1="{h*0.764}" x2="{w*0.764}" y2="{h*0.764}" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.8" />
-            <line x1="{w*0.708}" y1="{h*0.618}" x2="{w*0.708}" y2="{h*0.764}" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.8" />
+    else:  # Golden Spiral
+        svg_overlay = """
+            <line x1="618.03" y1="0" x2="618.03" y2="618.03" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />
+            <line x1="618.03" y1="381.97" x2="1000" y2="381.97" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />
+            <line x1="763.93" y1="381.97" x2="763.93" y2="618.03" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />
+            <line x1="618.03" y1="472.14" x2="763.93" y2="472.14" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />
+            <line x1="708.20" y1="381.97" x2="708.20" y2="472.14" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />
+            <line x1="708.20" y1="437.69" x2="763.93" y2="437.69" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />
+            <line x1="729.49" y1="437.69" x2="729.49" y2="472.14" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />
+            <line x1="708.20" y1="450.85" x2="729.49" y2="450.85" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />
+            <line x1="721.36" y1="437.69" x2="721.36" y2="450.85" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />
+            <line x1="721.36" y1="442.72" x2="729.49" y2="442.72" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />
 
             <path d="
-                M 0,{h} 
-                A {w*0.618},{h*0.618} 0 0,1 {w*0.618},0 
-                A {w*0.382},{h*0.382} 0 0,1 {w},{h*0.618} 
-                A {w*0.236},{h*0.236} 0 0,1 {w*0.764},{h} 
-                A {w*0.146},{h*0.146} 0 0,1 {w*0.618},{h*0.764} 
-                A {w*0.090},{h*0.090} 0 0,1 {w*0.708},{h*0.618} 
-                A {w*0.056},{h*0.056} 0 0,1 {w*0.764},{h*0.708} 
-                A {w*0.034},{h*0.034} 0 0,1 {w*0.729},{h*0.764}
+                M 0,618.03 
+                A 618.03,618.03 0 0,1 618.03,0 
+                A 381.97,381.97 0 0,1 1000,381.97 
+                A 236.07,236.07 0 0,1 763.93,618.03 
+                A 145.90,145.90 0 0,1 618.03,472.14 
+                A 90.17,90.17 0 0,1 708.20,381.97 
+                A 55.73,55.73 0 0,1 763.93,437.69 
+                A 34.44,34.44 0 0,1 729.49,472.14 
+                A 21.29,21.29 0 0,1 708.20,450.85
+                A 13.16,13.16 0 0,1 721.36,437.69
+                A 8.13,8.13 0 0,1 729.49,445.82
             " fill="none" stroke="#dcc86f" stroke-width="3.5" />
-            <circle cx="{w*0.725}" cy="{h*0.72}]" r="7" fill="#dcc86f" />
+            <circle cx="725" cy="445" r="8" fill="#dcc86f" />
         """
 
     # Side-by-side layout for 2 images
@@ -401,22 +408,30 @@ def render_live_viewfinder(guide_type="Golden Spiral", aspect_ratio="1.618 / 1",
             <line x1="0" y1="{vb_h * 0.618}" x2="{vb_w}" y2="{vb_h * 0.618}" stroke="#dcc86f" stroke-width="1" />
         """
     else:  # Golden Spiral
-        w, h = vb_w, vb_h
-        svg_content = f"""
-            <line x1="{w*0.618}" y1="0" x2="{w*0.618}" y2="{h}" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
-            <line x1="{w*0.618}" y1="{h*0.618}" x2="{w}" y2="{h*0.618}" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
-            <line x1="{w*0.764}" y1="{h*0.618}" x2="{w*0.764}" y2="{h}" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
-            <line x1="{w*0.618}" y1="{h*0.764}" x2="{w*0.764}" y2="{h*0.764}" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
+        svg_content = """
+            <line x1="618.03" y1="0" x2="618.03" y2="618.03" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
+            <line x1="618.03" y1="381.97" x2="1000" y2="381.97" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
+            <line x1="763.93" y1="381.97" x2="763.93" y2="618.03" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
+            <line x1="618.03" y1="472.14" x2="763.93" y2="472.14" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
+            <line x1="708.20" y1="381.97" x2="708.20" y2="472.14" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
+            <line x1="708.20" y1="437.69" x2="763.93" y2="437.69" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
+            <line x1="729.49" y1="437.69" x2="729.49" y2="472.14" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
+            <line x1="708.20" y1="450.85" x2="729.49" y2="450.85" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
+            <line x1="721.36" y1="437.69" x2="721.36" y2="450.85" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
+            <line x1="721.36" y1="442.72" x2="729.49" y2="442.72" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
 
             <path d="
-                M 0,{h} 
-                A {w*0.618},{h*0.618} 0 0,1 {w*0.618},0 
-                A {w*0.382},{h*0.382} 0 0,1 {w},{h*0.618} 
-                A {w*0.236},{h*0.236} 0 0,1 {w*0.764},{h} 
-                A {w*0.146},{h*0.146} 0 0,1 {w*0.618},{h*0.764} 
-                A {w*0.090},{h*0.090} 0 0,1 {w*0.708},{h*0.618} 
-                A {w*0.056},{h*0.056} 0 0,1 {w*0.764},{h*0.708} 
-                A {w*0.034},{h*0.034} 0 0,1 {w*0.729},{h*0.764}
+                M 0,618.03 
+                A 618.03,618.03 0 0,1 618.03,0 
+                A 381.97,381.97 0 0,1 1000,381.97 
+                A 236.07,236.07 0 0,1 763.93,618.03 
+                A 145.90,145.90 0 0,1 618.03,472.14 
+                A 90.17,90.17 0 0,1 708.20,381.97 
+                A 55.73,55.73 0 0,1 763.93,437.69 
+                A 34.44,34.44 0 0,1 729.49,472.14 
+                A 21.29,21.29 0 0,1 708.20,450.85
+                A 13.16,13.16 0 0,1 721.36,437.69
+                A 8.13,8.13 0 0,1 729.49,445.82
             " fill="none" stroke="#dcc86f" stroke-width="1.5" vector-effect="non-scaling-stroke" />
         """
 
