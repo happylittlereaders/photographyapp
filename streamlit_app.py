@@ -3,7 +3,7 @@ streamlit_app.py
 -----------------
 Web UI for "Golden Number" photography evaluation app.
 Features real-time camera viewfinders, photographer dataset presets, automatic style transfers,
-expanded Golden Spiral sub-squares, and image-backed guide explanation pop-ups.
+expanded Golden Spiral sub-squares, and pop-ups with 4 attributed sample images per composition guide.
 """
 
 import streamlit as st
@@ -71,92 +71,178 @@ st.write(
 )
 
 # ---------------------------------------------------------------------
-# Composition Guide Information Dictionary
+# Composition Guide Information & 4 Attributed Sample Images Dictionary
 # ---------------------------------------------------------------------
 GUIDE_EXPLANATIONS = {
     "Golden Spiral": {
         "title": "🌀 Golden Spiral (Fibonacci Spiral)",
         "explanation": (
-            "The Golden Spiral is formed by a series of nested Fibonacci squares based on the Golden Ratio (1:1.618). "
-            "It guides the eye in a natural, sweeping curve directly to the focal point where the smallest sub-squares converge. "
-            "Ideal for landscapes, environmental portraits, and dynamic architecture."
+            "The Golden Spiral uses nested Fibonacci sub-squares based on the Golden Ratio (1:1.618). "
+            "It guides the viewer's eye along a fluid, sweeping curve directly into the smallest sub-squares at the focal origin."
         ),
         "viewbox": "0 0 1000 618.034",
-        "aspect_ratio": "1.618 / 1"
+        "aspect_ratio": "1.618 / 1",
+        "samples": [
+            {
+                "img_url": "https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?w=800&auto=format&fit=crop",
+                "caption": "1. Curved Forest Path — The natural curve leads from the foreground directly to the light at the center of the spiral.",
+                "citation": "Photo by Luca Bravo via Unsplash (Unsplash License)"
+            },
+            {
+                "img_url": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&auto=format&fit=crop",
+                "caption": "2. Seashore Waves — The sweeping shoreline curve echoes the logarithmic arc into the horizon focal point.",
+                "citation": "Photo by Sean Oulashin via Unsplash (Unsplash License)"
+            },
+            {
+                "img_url": "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800&auto=format&fit=crop",
+                "caption": "3. Mountain Ridge — Leading mountain contours draw the eye across the frame into the glowing peak.",
+                "citation": "Photo by Benjamin Voros via Unsplash (Unsplash License)"
+            },
+            {
+                "img_url": "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&auto=format&fit=crop",
+                "caption": "4. Spiral Architecture — Natural architectural stairwells align directly with Fibonacci sub-square proportions.",
+                "citation": "Photo by Vanya Stenius via Unsplash (Unsplash License)"
+            }
+        ]
     },
     "Rule of Thirds": {
         "title": "📐 Rule of Thirds",
         "explanation": (
-            "Divides the canvas into a 3x3 grid using two vertical and two horizontal lines. "
-            "Key elements should align with the grid lines or sit directly at the four intersecting 'power points'. "
-            "Great for landscapes (horizon positioning) and quick framing."
+            "Divides the frame into a 3x3 grid with two vertical and two horizontal lines. "
+            "Primary elements are placed along the grid lines or directly at their four intersecting power points."
         ),
         "viewbox": "0 0 900 600",
-        "aspect_ratio": "3 / 2"
+        "aspect_ratio": "3 / 2",
+        "samples": [
+            {
+                "img_url": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop",
+                "caption": "1. Valley Horizon — Horizon line placed precisely along the lower horizontal third line.",
+                "citation": "Photo by Bailey Zindel via Unsplash (Unsplash License)"
+            },
+            {
+                "img_url": "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800&auto=format&fit=crop",
+                "caption": "2. Forest Tree Trunk — Vertical subject positioned along the right vertical grid line.",
+                "citation": "Photo by Sebastian Unrau via Unsplash (Unsplash License)"
+            },
+            {
+                "img_url": "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=800&auto=format&fit=crop",
+                "caption": "3. Solitary Tree — Subject placed on the lower-left intersection power point for dynamic balance.",
+                "citation": "Photo by Federico Respini via Unsplash (Unsplash License)"
+            },
+            {
+                "img_url": "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&auto=format&fit=crop",
+                "caption": "4. Coastal Sunrise — Sky fills the top two-thirds while the lake shoreline occupies the lower third.",
+                "citation": "Photo by Pietro De Grandi via Unsplash (Unsplash License)"
+            }
+        ]
     },
     "Golden Triangles": {
         "title": "🔺 Golden Triangles",
         "explanation": (
-            "Divides the frame with a main diagonal line and two perpendicular lines forming golden right triangles. "
-            "Creates dynamic leading lines and strong diagonal movement. Perfect for action, architectural diagonals, and street shots."
+            "Divides the frame using a main diagonal line and two perpendicular bisecting lines to form golden right triangles. "
+            "Creates dynamic leading lines and strong diagonal momentum across the scene."
         ),
         "viewbox": "0 0 900 600",
-        "aspect_ratio": "3 / 2"
+        "aspect_ratio": "3 / 2",
+        "samples": [
+            {
+                "img_url": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&auto=format&fit=crop",
+                "caption": "1. Skyscraper Diagonals — Sharp architectural lines align along the main diagonal bisector.",
+                "citation": "Photo by Sean Pollock via Unsplash (Unsplash License)"
+            },
+            {
+                "img_url": "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=800&auto=format&fit=crop",
+                "caption": "2. Sand Dunes — Rolling desert ridges cut cleanly across the diagonal triangle lines.",
+                "citation": "Photo by Keith Hardy via Unsplash (Unsplash License)"
+            },
+            {
+                "img_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop",
+                "caption": "3. Bridge Suspension Cables — Diagonal structural cables mirror the perpendicular right-triangle angles.",
+                "citation": "Photo by Joseph Pearson via Unsplash (Unsplash License)"
+            },
+            {
+                "img_url": "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=800&auto=format&fit=crop",
+                "caption": "4. Highway & Valley — Road cuts diagonally through the landscape, anchoring the triangle intersection.",
+                "citation": "Photo by Dino Reichmuth via Unsplash (Unsplash License)"
+            }
+        ]
     },
     "Golden Section": {
         "title": "✨ Golden Section (Phi Grid)",
         "explanation": (
-            "Similar to the Rule of Thirds, but calculated using the exact Golden Ratio (1:0.618:1). "
-            "The center column and row are narrower, creating a tightly balanced, harmonic focus point. "
-            "Ideal for portraits, architectural symmetry, and fine art composition."
+            "Uses the precise Golden Ratio (1:0.618:1) to generate a tighter central column and row. "
+            "Provides a more harmonic, subtle placement than standard thirds, ideal for fine-art compositions."
         ),
         "viewbox": "0 0 900 600",
-        "aspect_ratio": "3 / 2"
+        "aspect_ratio": "3 / 2",
+        "samples": [
+            {
+                "img_url": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop",
+                "caption": "1. Fine Art Portrait — Subject's eyes align perfectly with the upper Phi grid intersection.",
+                "citation": "Photo by Atyani Muhammad via Unsplash (Unsplash License)"
+            },
+            {
+                "img_url": "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=800&auto=format&fit=crop",
+                "caption": "2. Architectural Interior — Central room structure frames neatly within the 0.618 golden center row.",
+                "citation": "Photo by Samantha Brooks via Unsplash (Unsplash License)"
+            },
+            {
+                "img_url": "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&auto=format&fit=crop",
+                "caption": "3. Mountain Peak — Horizon sits naturally on the 0.618 Phi line for balanced sky-to-ground contrast.",
+                "citation": "Photo by Kalen Emsley via Unsplash (Unsplash License)"
+            },
+            {
+                "img_url": "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=800&auto=format&fit=crop",
+                "caption": "4. Solitary Traveler — Subject placed at the tighter Golden Section power point.",
+                "citation": "Photo by Joshua Earle via Unsplash (Unsplash License)"
+            }
+        ]
     }
 }
 
 # ---------------------------------------------------------------------
-# Pop-Up Dialog Modal Function
+# Pop-Up Dialog Modal Function (4 Attributed Images)
 # ---------------------------------------------------------------------
-@st.dialog("Composition Guide Breakdown")
+@st.dialog("Composition Guide Breakdown & 4 Example Visuals", width="large")
 def show_guide_dialog(guide_name):
     info = GUIDE_EXPLANATIONS.get(guide_name, GUIDE_EXPLANATIONS["Golden Spiral"])
     st.subheader(info["title"])
     st.write(info["explanation"])
-    
+    st.markdown("---")
+
     vb_parts = [float(val) for val in info["viewbox"].split()]
     vb_w, vb_h = vb_parts[2], vb_parts[3]
 
-    # Render Sample Image Overlay with SVG Composition Lines
+    # Render SVG composition overlay template
     if guide_name == "Rule of Thirds":
         svg_overlay = f"""
-            <line x1="{vb_w * 0.333}" y1="0" x2="{vb_w * 0.333}" y2="{vb_h}" stroke="#dcc86f" stroke-width="2.5" />
-            <line x1="{vb_w * 0.666}" y1="0" x2="{vb_w * 0.666}" y2="{vb_h}" stroke="#dcc86f" stroke-width="2.5" />
-            <line x1="0" y1="{vb_h * 0.333}" x2="{vb_w}" y2="{vb_h * 0.333}" stroke="#dcc86f" stroke-width="2.5" />
-            <line x1="0" y1="{vb_h * 0.666}" x2="{vb_w}" y2="{vb_h * 0.666}" stroke="#dcc86f" stroke-width="2.5" />
-            <circle cx="{vb_w * 0.333}" cy="{vb_h * 0.333}" r="10" fill="#dcc86f" />
-            <circle cx="{vb_w * 0.666}" cy="{vb_h * 0.333}" r="10" fill="#dcc86f" />
-            <circle cx="{vb_w * 0.333}" cy="{vb_h * 0.666}" r="10" fill="#dcc86f" />
-            <circle cx="{vb_w * 0.666}" cy="{vb_h * 0.666}" r="10" fill="#dcc86f" />
+            <line x1="{vb_w * 0.333}" y1="0" x2="{vb_w * 0.333}" y2="{vb_h}" stroke="#dcc86f" stroke-width="3" />
+            <line x1="{vb_w * 0.666}" y1="0" x2="{vb_w * 0.666}" y2="{vb_h}" stroke="#dcc86f" stroke-width="3" />
+            <line x1="0" y1="{vb_h * 0.333}" x2="{vb_w}" y2="{vb_h * 0.333}" stroke="#dcc86f" stroke-width="3" />
+            <line x1="0" y1="{vb_h * 0.666}" x2="{vb_w}" y2="{vb_h * 0.666}" stroke="#dcc86f" stroke-width="3" />
+            <circle cx="{vb_w * 0.333}" cy="{vb_h * 0.333}" r="8" fill="#dcc86f" />
+            <circle cx="{vb_w * 0.666}" cy="{vb_h * 0.333}" r="8" fill="#dcc86f" />
+            <circle cx="{vb_w * 0.333}" cy="{vb_h * 0.666}" r="8" fill="#dcc86f" />
+            <circle cx="{vb_w * 0.666}" cy="{vb_h * 0.666}" r="8" fill="#dcc86f" />
         """
     elif guide_name == "Golden Triangles":
         svg_overlay = f"""
-            <line x1="0" y1="{vb_h}" x2="{vb_w}" y2="0" stroke="#dcc86f" stroke-width="2.5" />
-            <line x1="0" y1="0" x2="{vb_w * 0.276}" y2="{vb_h * 0.723}" stroke="#dcc86f" stroke-width="2.5" />
-            <line x1="{vb_w}" y1="{vb_h}" x2="{vb_w * 0.723}" y2="{vb_h * 0.276}" stroke="#dcc86f" stroke-width="2.5" />
-            <circle cx="{vb_w * 0.276}" cy="{vb_h * 0.723}" r="10" fill="#dcc86f" />
-            <circle cx="{vb_w * 0.723}" cy="{vb_h * 0.276}" r="10" fill="#dcc86f" />
+            <line x1="0" y1="{vb_h}" x2="{vb_w}" y2="0" stroke="#dcc86f" stroke-width="3" />
+            <line x1="0" y1="0" x2="{vb_w * 0.276}" y2="{vb_h * 0.723}" stroke="#dcc86f" stroke-width="3" />
+            <line x1="{vb_w}" y1="{vb_h}" x2="{vb_w * 0.723}" y2="{vb_h * 0.276}" stroke="#dcc86f" stroke-width="3" />
+            <circle cx="{vb_w * 0.276}" cy="{vb_h * 0.723}" r="8" fill="#dcc86f" />
+            <circle cx="{vb_w * 0.723}" cy="{vb_h * 0.276}" r="8" fill="#dcc86f" />
         """
     elif guide_name == "Golden Section":
         svg_overlay = f"""
-            <line x1="{vb_w * 0.382}" y1="0" x2="{vb_w * 0.382}" y2="{vb_h}" stroke="#dcc86f" stroke-width="2.5" />
-            <line x1="{vb_w * 0.618}" y1="0" x2="{vb_w * 0.618}" y2="{vb_h}" stroke="#dcc86f" stroke-width="2.5" />
-            <line x1="0" y1="{vb_h * 0.382}" x2="{vb_w}" y2="{vb_h * 0.382}" stroke="#dcc86f" stroke-width="2.5" />
-            <line x1="0" y1="{vb_h * 0.618}" x2="{vb_w}" y2="{vb_h * 0.618}" stroke="#dcc86f" stroke-width="2.5" />
-            <circle cx="{vb_w * 0.382}" cy="{vb_h * 0.382}" r="10" fill="#dcc86f" />
-            <circle cx="{vb_w * 0.618}" cy="{vb_h * 0.382}" r="10" fill="#dcc86f" />
-            <circle cx="{vb_w * 0.382}" cy="{vb_h * 0.618}" r="10" fill="#dcc86f" />
-            <circle cx="{vb_w * 0.618}" cy="{vb_h * 0.618}" r="10" fill="#dcc86f" />
+            <line x1="{vb_w * 0.382}" y1="0" x2="{vb_w * 0.382}" y2="{vb_h}" stroke="#dcc86f" stroke-width="3" />
+            <line x1="{vb_w * 0.618}" y1="0" x2="{vb_w * 0.618}" y2="{vb_h}" stroke="#dcc86f" stroke-width="3" />
+            <line x1="0" y1="{vb_h * 0.382}" x2="{vb_w}" y2="{vb_h * 0.382}" stroke="#dcc86f" stroke-width="3" />
+            <line x1="0" y1="{vb_h * 0.618}" x2="{vb_w}" y2="{vb_h * 0.618}" stroke="#dcc86f" stroke-width="3" />
+            <circle cx="{vb_w * 0.382}" cy="{vb_h * 0.382}" r="8" fill="#dcc86f" />
+            <circle cx="{vb_w * 0.618}" cy="{vb_h * 0.382}" r="8" fill="#dcc86f" />
+            <circle cx="{vb_w * 0.382}" cy="{vb_h * 0.618}" r="8" fill="#dcc86f" />
+            <circle cx="{vb_w * 0.618}" cy="{vb_h * 0.618}" r="8" fill="#dcc86f" />
         """
     else:  # Golden Spiral with full recursive sub-squares
         svg_overlay = """
@@ -183,36 +269,35 @@ def show_guide_dialog(guide_name):
                 A 21.29,21.29 0 0,1 708.20,450.85
                 A 13.16,13.16 0 0,1 721.36,437.69
                 A 8.13,8.13 0 0,1 729.49,445.82
-            " fill="none" stroke="#dcc86f" stroke-width="3" />
+            " fill="none" stroke="#dcc86f" stroke-width="3.5" />
             <circle cx="725" cy="445" r="8" fill="#dcc86f" />
         """
 
-    # Interactive sample picture background with SVG guide
-    preview_html = f"""
-    <div style="width:100%; max-width:500px; margin: 10px auto; border: 2px solid #dcc86f; border-radius: 8px; position: relative; aspect-ratio: {info['aspect_ratio']}; overflow: hidden;">
-        <svg viewBox="{info['viewbox']}" style="width: 100%; height: 100%; display: block;">
-            <defs>
-                <linearGradient id="skyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" style="stop-color:#1c2d3d;stop-opacity:1" />
-                    <stop offset="100%" style="stop-color:#4a3f35;stop-opacity:1" />
-                </linearGradient>
-            </defs>
-            <rect width="100%" height="100%" fill="url(#skyGrad)" />
-            <polygon points="0,{vb_h} {vb_w*0.35},{vb_h*0.5} {vb_w*0.7},{vb_h}" fill="#111820" opacity="0.9"/>
-            <polygon points="{vb_w*0.4},{vb_h} {vb_w*0.72},{vb_h*0.42} {vb_w},{vb_h}" fill="#0b1015" />
-            <circle cx="{vb_w*0.72}" cy="{vb_h*0.42}" r="{vb_h*0.08}" fill="#dcc86f" opacity="0.35" />
-            
-            {svg_overlay}
-        </svg>
-    </div>
-    """
-    components.html(preview_html, height=340)
-    
-    if st.button("Got it!", use_container_width=True):
+    # Display 4 sample images in a 2x2 grid format
+    samples = info["samples"]
+    col1, col2 = st.columns(2)
+
+    for idx, sample in enumerate(samples):
+        target_col = col1 if idx % 2 == 0 else col2
+        with target_col:
+            card_html = f"""
+            <div style="width:100%; border: 1.5 solid #dcc86f; border-radius: 8px; position: relative; aspect-ratio: {info['aspect_ratio']}; overflow: hidden; background: #1a1a1a;">
+                <img src="{sample['img_url']}" style="width: 100%; height: 100%; object-fit: cover; display: block; filter: brightness(0.85);" />
+                <svg viewBox="{info['viewbox']}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;">
+                    {svg_overlay}
+                </svg>
+            </div>
+            """
+            st.components.v1.html(card_html, height=210)
+            st.markdown(f"**{sample['caption']}**")
+            st.caption(f"📌 *Citation:* {sample['citation']}")
+            st.write("")
+
+    if st.button("Close Guide", use_container_width=True):
         st.rerun()
 
 # ---------------------------------------------------------------------
-# Expanded Photographer Presets Configuration
+# Photographer Presets Configuration
 # ---------------------------------------------------------------------
 PHOTOGRAPHER_PRESETS = {
     "Default (Golden Ratio)": {
