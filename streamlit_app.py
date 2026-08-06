@@ -3,7 +3,7 @@ streamlit_app.py
 -----------------
 Web UI for "Golden Number" photography evaluation app.
 Features real-time camera viewfinders, photographer dataset presets, automatic style transfers,
-and interactive composition guide pop-ups.
+expanded Golden Spiral sub-squares, and image-backed guide explanation pop-ups.
 """
 
 import streamlit as st
@@ -77,9 +77,9 @@ GUIDE_EXPLANATIONS = {
     "Golden Spiral": {
         "title": "🌀 Golden Spiral (Fibonacci Spiral)",
         "explanation": (
-            "The Golden Spiral is based on the Golden Ratio (1:1.618). "
-            "It leads the viewer's eye along a natural fluid curve directly toward the focal point located at the spiral's origin. "
-            "Ideal for landscape vistas, wide street scenes, and dynamic environmental portraits."
+            "The Golden Spiral is formed by a series of nested Fibonacci squares based on the Golden Ratio (1:1.618). "
+            "It guides the eye in a natural, sweeping curve directly to the focal point where the smallest sub-squares converge. "
+            "Ideal for landscapes, environmental portraits, and dynamic architecture."
         ),
         "viewbox": "0 0 1000 618.034",
         "aspect_ratio": "1.618 / 1"
@@ -88,8 +88,8 @@ GUIDE_EXPLANATIONS = {
         "title": "📐 Rule of Thirds",
         "explanation": (
             "Divides the canvas into a 3x3 grid using two vertical and two horizontal lines. "
-            "Key elements should be placed along the lines or at their four intersecting 'power points'. "
-            "Great for landscapes (horizon line positioning) and quick framing."
+            "Key elements should align with the grid lines or sit directly at the four intersecting 'power points'. "
+            "Great for landscapes (horizon positioning) and quick framing."
         ),
         "viewbox": "0 0 900 600",
         "aspect_ratio": "3 / 2"
@@ -97,8 +97,8 @@ GUIDE_EXPLANATIONS = {
     "Golden Triangles": {
         "title": "🔺 Golden Triangles",
         "explanation": (
-            "Divides the image using a main diagonal line and two perpendicular bisecting lines forming right triangles. "
-            "Creates dynamic leading lines and strong diagonal momentum. Perfect for action shots, architecture, and dynamic street photography."
+            "Divides the frame with a main diagonal line and two perpendicular lines forming golden right triangles. "
+            "Creates dynamic leading lines and strong diagonal movement. Perfect for action, architectural diagonals, and street shots."
         ),
         "viewbox": "0 0 900 600",
         "aspect_ratio": "3 / 2"
@@ -106,9 +106,9 @@ GUIDE_EXPLANATIONS = {
     "Golden Section": {
         "title": "✨ Golden Section (Phi Grid)",
         "explanation": (
-            "Similar to the Rule of Thirds, but based on the precise Golden Ratio ratio (1:0.618:1). "
-            "The center column and row are tighter, giving a more balanced, harmonious feel than standard thirds. "
-            "Ideal for portraits, architectural symmetry, and fine-art framing."
+            "Similar to the Rule of Thirds, but calculated using the exact Golden Ratio (1:0.618:1). "
+            "The center column and row are narrower, creating a tightly balanced, harmonic focus point. "
+            "Ideal for portraits, architectural symmetry, and fine art composition."
         ),
         "viewbox": "0 0 900 600",
         "aspect_ratio": "3 / 2"
@@ -124,45 +124,53 @@ def show_guide_dialog(guide_name):
     st.subheader(info["title"])
     st.write(info["explanation"])
     
-    # Render interactive example visualization overlay
     vb_parts = [float(val) for val in info["viewbox"].split()]
     vb_w, vb_h = vb_parts[2], vb_parts[3]
 
+    # Render Sample Image Overlay with SVG Composition Lines
     if guide_name == "Rule of Thirds":
         svg_overlay = f"""
-            <line x1="{vb_w * 0.333}" y1="0" x2="{vb_w * 0.333}" y2="{vb_h}" stroke="#dcc86f" stroke-width="2" />
-            <line x1="{vb_w * 0.666}" y1="0" x2="{vb_w * 0.666}" y2="{vb_h}" stroke="#dcc86f" stroke-width="2" />
-            <line x1="0" y1="{vb_h * 0.333}" x2="{vb_w}" y2="{vb_h * 0.333}" stroke="#dcc86f" stroke-width="2" />
-            <line x1="0" y1="{vb_h * 0.666}" x2="{vb_w}" y2="{vb_h * 0.666}" stroke="#dcc86f" stroke-width="2" />
-            <circle cx="{vb_w * 0.333}" cy="{vb_h * 0.333}" r="8" fill="#dcc86f" />
-            <circle cx="{vb_w * 0.666}" cy="{vb_h * 0.333}" r="8" fill="#dcc86f" />
-            <circle cx="{vb_w * 0.333}" cy="{vb_h * 0.666}" r="8" fill="#dcc86f" />
-            <circle cx="{vb_w * 0.666}" cy="{vb_h * 0.666}" r="8" fill="#dcc86f" />
+            <line x1="{vb_w * 0.333}" y1="0" x2="{vb_w * 0.333}" y2="{vb_h}" stroke="#dcc86f" stroke-width="2.5" />
+            <line x1="{vb_w * 0.666}" y1="0" x2="{vb_w * 0.666}" y2="{vb_h}" stroke="#dcc86f" stroke-width="2.5" />
+            <line x1="0" y1="{vb_h * 0.333}" x2="{vb_w}" y2="{vb_h * 0.333}" stroke="#dcc86f" stroke-width="2.5" />
+            <line x1="0" y1="{vb_h * 0.666}" x2="{vb_w}" y2="{vb_h * 0.666}" stroke="#dcc86f" stroke-width="2.5" />
+            <circle cx="{vb_w * 0.333}" cy="{vb_h * 0.333}" r="10" fill="#dcc86f" />
+            <circle cx="{vb_w * 0.666}" cy="{vb_h * 0.333}" r="10" fill="#dcc86f" />
+            <circle cx="{vb_w * 0.333}" cy="{vb_h * 0.666}" r="10" fill="#dcc86f" />
+            <circle cx="{vb_w * 0.666}" cy="{vb_h * 0.666}" r="10" fill="#dcc86f" />
         """
     elif guide_name == "Golden Triangles":
         svg_overlay = f"""
-            <line x1="0" y1="{vb_h}" x2="{vb_w}" y2="0" stroke="#dcc86f" stroke-width="2" />
-            <line x1="0" y1="0" x2="{vb_w * 0.276}" y2="{vb_h * 0.723}" stroke="#dcc86f" stroke-width="2" />
-            <line x1="{vb_w}" y1="{vb_h}" x2="{vb_w * 0.723}" y2="{vb_h * 0.276}" stroke="#dcc86f" stroke-width="2" />
-            <circle cx="{vb_w * 0.276}" cy="{vb_h * 0.723}" r="8" fill="#dcc86f" />
-            <circle cx="{vb_w * 0.723}" cy="{vb_h * 0.276}" r="8" fill="#dcc86f" />
+            <line x1="0" y1="{vb_h}" x2="{vb_w}" y2="0" stroke="#dcc86f" stroke-width="2.5" />
+            <line x1="0" y1="0" x2="{vb_w * 0.276}" y2="{vb_h * 0.723}" stroke="#dcc86f" stroke-width="2.5" />
+            <line x1="{vb_w}" y1="{vb_h}" x2="{vb_w * 0.723}" y2="{vb_h * 0.276}" stroke="#dcc86f" stroke-width="2.5" />
+            <circle cx="{vb_w * 0.276}" cy="{vb_h * 0.723}" r="10" fill="#dcc86f" />
+            <circle cx="{vb_w * 0.723}" cy="{vb_h * 0.276}" r="10" fill="#dcc86f" />
         """
     elif guide_name == "Golden Section":
         svg_overlay = f"""
-            <line x1="{vb_w * 0.382}" y1="0" x2="{vb_w * 0.382}" y2="{vb_h}" stroke="#dcc86f" stroke-width="2" />
-            <line x1="{vb_w * 0.618}" y1="0" x2="{vb_w * 0.618}" y2="{vb_h}" stroke="#dcc86f" stroke-width="2" />
-            <line x1="0" y1="{vb_h * 0.382}" x2="{vb_w}" y2="{vb_h * 0.382}" stroke="#dcc86f" stroke-width="2" />
-            <line x1="0" y1="{vb_h * 0.618}" x2="{vb_w}" y2="{vb_h * 0.618}" stroke="#dcc86f" stroke-width="2" />
-            <circle cx="{vb_w * 0.382}" cy="{vb_h * 0.382}" r="8" fill="#dcc86f" />
-            <circle cx="{vb_w * 0.618}" cy="{vb_h * 0.382}" r="8" fill="#dcc86f" />
-            <circle cx="{vb_w * 0.382}" cy="{vb_h * 0.618}" r="8" fill="#dcc86f" />
-            <circle cx="{vb_w * 0.618}" cy="{vb_h * 0.618}" r="8" fill="#dcc86f" />
+            <line x1="{vb_w * 0.382}" y1="0" x2="{vb_w * 0.382}" y2="{vb_h}" stroke="#dcc86f" stroke-width="2.5" />
+            <line x1="{vb_w * 0.618}" y1="0" x2="{vb_w * 0.618}" y2="{vb_h}" stroke="#dcc86f" stroke-width="2.5" />
+            <line x1="0" y1="{vb_h * 0.382}" x2="{vb_w}" y2="{vb_h * 0.382}" stroke="#dcc86f" stroke-width="2.5" />
+            <line x1="0" y1="{vb_h * 0.618}" x2="{vb_w}" y2="{vb_h * 0.618}" stroke="#dcc86f" stroke-width="2.5" />
+            <circle cx="{vb_w * 0.382}" cy="{vb_h * 0.382}" r="10" fill="#dcc86f" />
+            <circle cx="{vb_w * 0.618}" cy="{vb_h * 0.382}" r="10" fill="#dcc86f" />
+            <circle cx="{vb_w * 0.382}" cy="{vb_h * 0.618}" r="10" fill="#dcc86f" />
+            <circle cx="{vb_w * 0.618}" cy="{vb_h * 0.618}" r="10" fill="#dcc86f" />
         """
-    else:  # Golden Spiral
+    else:  # Golden Spiral with full recursive sub-squares
         svg_overlay = """
-            <line x1="618.03" y1="0" x2="618.03" y2="618.03" stroke="#dcc86f" stroke-width="1" stroke-dasharray="4,4" opacity="0.6" />
-            <line x1="618.03" y1="381.97" x2="1000" y2="381.97" stroke="#dcc86f" stroke-width="1" stroke-dasharray="4,4" opacity="0.6" />
-            <line x1="763.93" y1="381.97" x2="763.93" y2="618.03" stroke="#dcc86f" stroke-width="1" stroke-dasharray="4,4" opacity="0.6" />
+            <line x1="618.03" y1="0" x2="618.03" y2="618.03" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />
+            <line x1="618.03" y1="381.97" x2="1000" y2="381.97" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />
+            <line x1="763.93" y1="381.97" x2="763.93" y2="618.03" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />
+            <line x1="618.03" y1="472.14" x2="763.93" y2="472.14" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />
+            <line x1="708.20" y1="381.97" x2="708.20" y2="472.14" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />
+            <line x1="708.20" y1="437.69" x2="763.93" y2="437.69" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />
+            <line x1="729.49" y1="437.69" x2="729.49" y2="472.14" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />
+            <line x1="708.20" y1="450.85" x2="729.49" y2="450.85" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />
+            <line x1="721.36" y1="437.69" x2="721.36" y2="450.85" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />
+            <line x1="721.36" y1="442.72" x2="729.49" y2="442.72" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />
+
             <path d="
                 M 0,618.03 
                 A 618.03,618.03 0 0,1 618.03,0 
@@ -171,19 +179,34 @@ def show_guide_dialog(guide_name):
                 A 145.90,145.90 0 0,1 618.03,472.14 
                 A 90.17,90.17 0 0,1 708.20,381.97 
                 A 55.73,55.73 0 0,1 763.93,437.69 
+                A 34.44,34.44 0 0,1 729.49,472.14 
+                A 21.29,21.29 0 0,1 708.20,450.85
+                A 13.16,13.16 0 0,1 721.36,437.69
+                A 8.13,8.13 0 0,1 729.49,445.82
             " fill="none" stroke="#dcc86f" stroke-width="3" />
-            <circle cx="729.49" cy="445.82" r="10" fill="#dcc86f" />
+            <circle cx="725" cy="445" r="8" fill="#dcc86f" />
         """
 
+    # Interactive sample picture background with SVG guide
     preview_html = f"""
-    <div style="width:100%; max-width:480px; margin: 10px auto; border: 2px solid #dcc86f; border-radius: 8px; background: #1a1a1a; position: relative; aspect-ratio: {info['aspect_ratio']}; overflow: hidden;">
+    <div style="width:100%; max-width:500px; margin: 10px auto; border: 2px solid #dcc86f; border-radius: 8px; position: relative; aspect-ratio: {info['aspect_ratio']}; overflow: hidden;">
         <svg viewBox="{info['viewbox']}" style="width: 100%; height: 100%; display: block;">
-            <rect width="100%" height="100%" fill="#262626" />
+            <defs>
+                <linearGradient id="skyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" style="stop-color:#1c2d3d;stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:#4a3f35;stop-opacity:1" />
+                </linearGradient>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#skyGrad)" />
+            <polygon points="0,{vb_h} {vb_w*0.35},{vb_h*0.5} {vb_w*0.7},{vb_h}" fill="#111820" opacity="0.9"/>
+            <polygon points="{vb_w*0.4},{vb_h} {vb_w*0.72},{vb_h*0.42} {vb_w},{vb_h}" fill="#0b1015" />
+            <circle cx="{vb_w*0.72}" cy="{vb_h*0.42}" r="{vb_h*0.08}" fill="#dcc86f" opacity="0.35" />
+            
             {svg_overlay}
         </svg>
     </div>
     """
-    components.html(preview_html, height=300)
+    components.html(preview_html, height=340)
     
     if st.button("Got it!", use_container_width=True):
         st.rerun()
@@ -329,11 +352,19 @@ def render_live_viewfinder(guide_type="Golden Spiral", aspect_ratio="1.618 / 1",
             <line x1="0" y1="{vb_h * 0.382}" x2="{vb_w}" y2="{vb_h * 0.382}" stroke="#dcc86f" stroke-width="1" />
             <line x1="0" y1="{vb_h * 0.618}" x2="{vb_w}" y2="{vb_h * 0.618}" stroke="#dcc86f" stroke-width="1" />
         """
-    else:  # Golden Spiral
+    else:  # Golden Spiral with full sub-square lines
         svg_content = """
             <line x1="618.03" y1="0" x2="618.03" y2="618.03" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
             <line x1="618.03" y1="381.97" x2="1000" y2="381.97" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
             <line x1="763.93" y1="381.97" x2="763.93" y2="618.03" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
+            <line x1="618.03" y1="472.14" x2="763.93" y2="472.14" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
+            <line x1="708.20" y1="381.97" x2="708.20" y2="472.14" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
+            <line x1="708.20" y1="437.69" x2="763.93" y2="437.69" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
+            <line x1="729.49" y1="437.69" x2="729.49" y2="472.14" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
+            <line x1="708.20" y1="450.85" x2="729.49" y2="450.85" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
+            <line x1="721.36" y1="437.69" x2="721.36" y2="450.85" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
+            <line x1="721.36" y1="442.72" x2="729.49" y2="442.72" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
+
             <path d="
                 M 0,618.03 
                 A 618.03,618.03 0 0,1 618.03,0 
@@ -342,6 +373,10 @@ def render_live_viewfinder(guide_type="Golden Spiral", aspect_ratio="1.618 / 1",
                 A 145.90,145.90 0 0,1 618.03,472.14 
                 A 90.17,90.17 0 0,1 708.20,381.97 
                 A 55.73,55.73 0 0,1 763.93,437.69 
+                A 34.44,34.44 0 0,1 729.49,472.14 
+                A 21.29,21.29 0 0,1 708.20,450.85
+                A 13.16,13.16 0 0,1 721.36,437.69
+                A 8.13,8.13 0 0,1 729.49,445.82
             " fill="none" stroke="#dcc86f" stroke-width="1.5" vector-effect="non-scaling-stroke" />
         """
 
