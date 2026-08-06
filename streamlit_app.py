@@ -85,21 +85,25 @@ GUIDE_EXPLANATIONS = {
         "samples": [
             {
                 "img_url": "https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?w=800&auto=format&fit=crop",
+                "page_url": "https://unsplash.com/photos/ES2-KaB4RNo",
                 "caption": "1. Curved Forest Path — The natural curve leads from the foreground directly to the light at the center of the spiral.",
                 "citation": "Photo by Luca Bravo via Unsplash"
             },
             {
                 "img_url": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&auto=format&fit=crop",
+                "page_url": "https://unsplash.com/photos/KMn4VEeE21U",
                 "caption": "2. Seashore Waves — The sweeping shoreline curve echoes the logarithmic arc into the horizon focal point.",
                 "citation": "Photo by Sean Oulashin via Unsplash"
             },
             {
                 "img_url": "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800&auto=format&fit=crop",
+                "page_url": "https://unsplash.com/photos/phIFdC6lA4E",
                 "caption": "3. Mountain Ridge — Leading mountain contours draw the eye across the frame into the glowing peak.",
                 "citation": "Photo by Benjamin Voros via Unsplash"
             },
             {
                 "img_url": "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&auto=format&fit=crop",
+                "page_url": "https://unsplash.com/photos/K2s_yWI352A",
                 "caption": "4. Spiral Architecture — Natural architectural stairwells align directly with Fibonacci sub-square proportions.",
                 "citation": "Photo by Vanya Stenius via Unsplash"
             }
@@ -116,21 +120,25 @@ GUIDE_EXPLANATIONS = {
         "samples": [
             {
                 "img_url": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop",
+                "page_url": "https://unsplash.com/photos/NR_S2369wbU",
                 "caption": "1. Valley Horizon — Horizon line placed precisely along the lower horizontal third line.",
                 "citation": "Photo by Bailey Zindel via Unsplash"
             },
             {
                 "img_url": "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800&auto=format&fit=crop",
+                "page_url": "https://unsplash.com/photos/sp-p7uuT0tw",
                 "caption": "2. Forest Tree Trunk — Vertical subject positioned along the right vertical grid line.",
                 "citation": "Photo by Sebastian Unrau via Unsplash"
             },
             {
                 "img_url": "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=800&auto=format&fit=crop",
+                "page_url": "https://unsplash.com/photos/1x4f5E3-oK8",
                 "caption": "3. Solitary Tree — Subject placed on the lower-left intersection power point for dynamic balance.",
                 "citation": "Photo by Federico Respini via Unsplash"
             },
             {
                 "img_url": "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&auto=format&fit=crop",
+                "page_url": "https://unsplash.com/photos/J2X88nPy1XU",
                 "caption": "4. Coastal Sunrise — Sky fills the top two-thirds while the lake shoreline occupies the lower third.",
                 "citation": "Photo by Pietro De Grandi via Unsplash"
             }
@@ -147,21 +155,25 @@ GUIDE_EXPLANATIONS = {
         "samples": [
             {
                 "img_url": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&auto=format&fit=crop",
+                "page_url": "https://unsplash.com/photos/dW2_L80Xn4U",
                 "caption": "1. Skyscraper Diagonals — Sharp architectural lines align along the main diagonal bisector.",
                 "citation": "Photo by Sean Pollock via Unsplash"
             },
             {
                 "img_url": "https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=800&auto=format&fit=crop",
+                "page_url": "https://unsplash.com/photos/m_X961xW3mI",
                 "caption": "2. Sand Dunes — Rolling desert ridges cut cleanly across the diagonal triangle lines.",
                 "citation": "Photo by Keith Hardy via Unsplash"
             },
             {
                 "img_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop",
+                "page_url": "https://unsplash.com/photos/xG2_vB9833U",
                 "caption": "3. Bridge Suspension Cables — Diagonal structural cables mirror the perpendicular right-triangle angles.",
                 "citation": "Photo by Joseph Pearson via Unsplash"
             },
             {
                 "img_url": "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=800&auto=format&fit=crop",
+                "page_url": "https://unsplash.com/photos/5R2_jWI922I",
                 "caption": "4. Highway & Valley — Road cuts diagonally through the landscape, anchoring the triangle intersection.",
                 "citation": "Photo by Dino Reichmuth via Unsplash"
             }
@@ -178,21 +190,25 @@ GUIDE_EXPLANATIONS = {
         "samples": [
             {
                 "img_url": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800&auto=format&fit=crop",
+                "page_url": "https://unsplash.com/photos/d1UPi8S6-4I",
                 "caption": "1. Fine Art Portrait — Subject's eyes align perfectly with the upper Phi grid intersection.",
                 "citation": "Photo by Atyani Muhammad via Unsplash"
             },
             {
                 "img_url": "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=800&auto=format&fit=crop",
+                "page_url": "https://unsplash.com/photos/ww3_92kW912",
                 "caption": "2. Architectural Interior — Central room structure frames neatly within the 0.618 golden center row.",
                 "citation": "Photo by Samantha Brooks via Unsplash"
             },
             {
                 "img_url": "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&auto=format&fit=crop",
+                "page_url": "https://unsplash.com/photos/592_kW98239",
                 "caption": "3. Mountain Peak — Horizon sits naturally on the 0.618 Phi line for balanced sky-to-ground contrast.",
                 "citation": "Photo by Kalen Emsley via Unsplash"
             },
             {
                 "img_url": "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=800&auto=format&fit=crop",
+                "page_url": "https://unsplash.com/photos/x4k991mWW11",
                 "caption": "4. Solitary Traveler — Subject placed at the tighter Golden Section power point.",
                 "citation": "Photo by Joshua Earle via Unsplash"
             }
@@ -201,7 +217,7 @@ GUIDE_EXPLANATIONS = {
 }
 
 # ---------------------------------------------------------------------
-# Pop-Up Dialog Modal Function (4 Attributed Images)
+# Pop-Up Dialog Modal Function (4 Attributed Images with No Clipping)
 # ---------------------------------------------------------------------
 @st.dialog("Composition Guide Breakdown & 4 Example Visuals", width="large")
 def show_guide_dialog(guide_name):
@@ -273,25 +289,99 @@ def show_guide_dialog(guide_name):
             <circle cx="725" cy="445" r="8" fill="#dcc86f" />
         """
 
-    # Display 4 sample images in a 2x2 grid format
+    # Render a responsive 2x2 grid in HTML so text + image + link stay unified with no iframe cutoffs
     samples = info["samples"]
-    col1, col2 = st.columns(2)
-
-    for idx, sample in enumerate(samples):
-        target_col = col1 if idx % 2 == 0 else col2
-        with target_col:
-            card_html = f"""
-            <div style="width:100%; border: 1.5px solid #dcc86f; border-radius: 8px; position: relative; aspect-ratio: {info['aspect_ratio']}; overflow: hidden; background: #1a1a1a; margin: 0 auto;">
-                <img src="{sample['img_url']}" style="width: 100%; height: 100%; object-fit: cover; display: block; filter: brightness(0.85);" />
-                <svg viewBox="{info['viewbox']}" preserveAspectRatio="none" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;">
-                    {svg_overlay}
-                </svg>
+    
+    grid_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{
+                margin: 0;
+                padding: 0;
+                background-color: transparent;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                color: #ffffff;
+            }}
+            .samples-grid {{
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 20px;
+                width: 100%;
+            }}
+            .card {{
+                display: flex;
+                flex-direction: column;
+            }}
+            .image-wrapper {{
+                width: 100%;
+                aspect-ratio: {info['aspect_ratio']};
+                border: 1.5px solid #dcc86f;
+                border-radius: 8px;
+                position: relative;
+                overflow: hidden;
+                background-color: #1a1a1a;
+            }}
+            .image-wrapper img {{
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                display: block;
+                filter: brightness(0.85);
+            }}
+            .image-wrapper svg {{
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
+            }}
+            .caption-text {{
+                font-size: 14px;
+                font-weight: 600;
+                margin-top: 10px;
+                margin-bottom: 4px;
+                line-height: 1.35;
+                color: #e0e0e0;
+            }}
+            .citation-link {{
+                font-size: 12px;
+                color: #88aadd;
+                text-decoration: none;
+            }}
+            .citation-link:hover {{
+                text-decoration: underline;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="samples-grid">
+    """
+    
+    for sample in samples:
+        grid_html += f"""
+            <div class="card">
+                <div class="image-wrapper">
+                    <img src="{sample['img_url']}" alt="Example image" />
+                    <svg viewBox="{info['viewbox']}" preserveAspectRatio="none">
+                        {svg_overlay}
+                    </svg>
+                </div>
+                <div class="caption-text">{sample['caption']}</div>
+                <a class="citation-link" href="{sample['page_url']}" target="_blank" rel="noopener noreferrer">{sample['citation']}</a>
             </div>
-            """
-            components.html(card_html, height=270)
-            st.markdown(f"**{sample['caption']}**")
-            st.caption(f"[{sample['citation']}]({sample['img_url']})")
-            st.write("")
+        """
+
+    grid_html += """
+        </div>
+    </body>
+    </html>
+    """
+
+    # Dynamically estimate component height so iframe never scrollbars or clips captions
+    components.html(grid_html, height=720, scrolling=False)
 
     if st.button("Close Guide", use_container_width=True):
         st.rerun()
