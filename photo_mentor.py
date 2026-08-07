@@ -8,6 +8,8 @@ aspect ratio conforming, and image correction logic tailored for photographer pr
 import cv2
 import numpy as np
 
+PHI = 1.61803398875
+
 
 class PhotoMentor:
     """Runs computer-vision checks and applies automatic fixes to photos."""
@@ -87,7 +89,7 @@ class PhotoMentor:
 
         contrast_mod = style_config.get("contrast_factor", 1.0) if style_config else 1.0
         target_brightness = (110.0 if overexposed_ratio > 0.10 else 128.0) * (2.0 - contrast_mod * 0.8)
-        
+
         if avg_brightness < 1.0:
             avg_brightness = 1.0
 
@@ -180,7 +182,7 @@ class PhotoMentor:
 
     def fix_saturation(self, img_bgr=None, style_config=None):
         src = self.img if img_bgr is None else img_bgr
-        
+
         if style_config and style_config.get("monochrome", False):
             gray = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
             return cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
@@ -206,7 +208,7 @@ class PhotoMentor:
     # -----------------------------------------------------------------
     def apply_photographer_style(self, base_image, style_config):
         img = base_image.copy().astype(np.float32)
-        
+
         contrast = style_config.get("contrast_factor", 1.0)
         sat_mult = style_config.get("saturation_factor", 1.0)
         monochrome = style_config.get("monochrome", False)
@@ -220,7 +222,7 @@ class PhotoMentor:
         if warmth != 0.0:
             img[:, :, 2] += warmth * 15
             img[:, :, 0] -= warmth * 10
-        
+
         if cool_shadows:
             shadow_mask = np.clip((128.0 - img) / 128.0, 0, 1)
             img[:, :, 0] += shadow_mask[:, :, 0] * 18.0
@@ -254,72 +256,218 @@ class PhotoMentor:
         return img
 
     # -----------------------------------------------------------------
+    # Colorblind-Friendly Correction (Daltonization)
+    # -----------------------------------------------------------------
+    # Standard RGB<->LMS conversion matrices used for CVD simulation.
+    _CB_LMS_IN = np.array([
+        [17.8824, 43.5161, 4.11935],
+        [3.45565, 27.1554, 3.86714],
+        [0.0299566, 0.184309, 1.46709],
+    ])
+    _CB_LMS_OUT = np.linalg.inv(_CB_LMS_IN)
+
+    # Confusion-line projection matrices (applied in LMS space) approximating
+    # how each dichromatic type of color vision deficiency perceives color.
+    _CB_SIM = {
+        "protanopia": np.array([
+            [0, 2.02344, -2.52581],
+            [0, 1, 0],
+            [0, 0, 1],
+        ]),
+        "deuteranopia": np.array([
+            [1, 0, 0],
+            [0.494207, 0, 1.24827],
+            [0, 0, 1],
+        ]),
+        "tritanopia": np.array([
+            [1, 0, 0],
+            [0, 1, 0],
+            [-0.395913, 0.801109, 0],
+        ]),
+    }
+
+    def apply_colorblind_correction(self, img_bgr=None, cb_type="deuteranopia", strength=1.0):
+        """
+        Daltonizes the image: simulates how it would look to someone with the
+        given color-vision-deficiency type, computes what color information
+        that simulation loses, then redistributes that lost information into
+        channels the viewer can still perceive. Supports the three most common
+        dichromatic types: protanopia, deuteranopia (most common), and
+        tritanopia.
+        """
+        src = self.img if img_bgr is None else img_bgr
+        sim_matrix = self._CB_SIM.get(cb_type, self._CB_SIM["deuteranopia"])
+
+        rgb = cv2.cvtColor(src, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
+        flat = rgb.reshape(-1, 3).T  # 3 x N
+
+        lms = self._CB_LMS_IN @ flat
+        lms_sim = sim_matrix @ lms
+        rgb_sim = (self._CB_LMS_OUT @ lms_sim).T.reshape(rgb.shape)
+
+        # Error = the color information lost in simulation.
+        error = rgb - rgb_sim
+        correction = np.zeros_like(error)
+        correction[:, :, 1] = error[:, :, 0] * 0.7 + error[:, :, 1]
+        correction[:, :, 2] = error[:, :, 0] * 0.7 + error[:, :, 2]
+
+        corrected = np.clip(rgb + correction * strength, 0, 1)
+        corrected_bgr = cv2.cvtColor((corrected * 255).astype(np.uint8), cv2.COLOR_RGB2BGR)
+        return corrected_bgr
+
+    # -----------------------------------------------------------------
+    # Visual-Attention / Contrast Heatmap
+    # -----------------------------------------------------------------
+    def generate_attention_heatmap(self, img_bgr=None, blend_alpha=0.55):
+        """
+        Produces a heatmap approximating which areas of the photo draw the eye
+        most, combining local contrast, edge strength, and color saturation
+        (a fast, dependency-free stand-in for a full saliency model). Returns
+        (overlay_bgr, raw_saliency_uint8).
+        """
+        src = self.img if img_bgr is None else img_bgr
+        gray = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY).astype(np.float32)
+
+        # Local contrast: difference from a heavily blurred version of itself.
+        blurred = cv2.GaussianBlur(gray, (0, 0), sigmaX=15)
+        local_contrast = np.abs(gray - blurred)
+
+        # Edge / gradient strength.
+        gx = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
+        gy = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
+        edge_strength = cv2.magnitude(gx, gy)
+
+        # Color saturation (vivid colors pull the eye).
+        hsv = cv2.cvtColor(src, cv2.COLOR_BGR2HSV).astype(np.float32)
+        sat = hsv[:, :, 1]
+
+        saliency = (
+            0.45 * cv2.normalize(local_contrast, None, 0, 1, cv2.NORM_MINMAX) +
+            0.40 * cv2.normalize(edge_strength, None, 0, 1, cv2.NORM_MINMAX) +
+            0.15 * cv2.normalize(sat, None, 0, 1, cv2.NORM_MINMAX)
+        )
+        saliency = cv2.GaussianBlur(saliency, (0, 0), sigmaX=6)
+        saliency_u8 = np.clip(saliency * 255, 0, 255).astype(np.uint8)
+
+        heat_color = cv2.applyColorMap(saliency_u8, cv2.COLORMAP_JET)
+        overlay = cv2.addWeighted(src, 1 - blend_alpha, heat_color, blend_alpha, 0)
+        return overlay, saliency_u8
+
+    # -----------------------------------------------------------------
     # Viewfinder Composition Overlays
     # -----------------------------------------------------------------
-    def _draw_golden_spiral(self, canvas, color, thickness):
-        phi = 1.61803398875
-        is_portrait = self.height > self.width
+    @staticmethod
+    def golden_spiral_svg_geometry(vb_w, vb_h, iterations=10):
+        """
+        Computes the nested Fibonacci sub-squares and the connecting spiral
+        arc for an SVG canvas of size (vb_w, vb_h). Returns a dict with
+        'squares' (list of (x, y, w, h) rects, largest first) and 'path' (an
+        SVG path 'd' string for the spiral curve). Shared by both the live
+        camera viewfinder and the "Explain Guide" popup so the overlay is
+        always geometrically correct and consistent between the two.
+        """
+        is_portrait = vb_h > vb_w
 
         if is_portrait:
-            rect_w = self.width
-            rect_h = int(rect_w * phi)
-            if rect_h > self.height:
-                rect_h = self.height
-                rect_w = int(rect_h / phi)
+            rect_w = vb_w
+            rect_h = rect_w * PHI
+            if rect_h > vb_h:
+                rect_h = vb_h
+                rect_w = rect_h / PHI
         else:
-            rect_h = self.height
-            rect_w = int(rect_h * phi)
-            if rect_w > self.width:
-                rect_w = self.width
-                rect_h = int(rect_w / phi)
+            rect_h = vb_h
+            rect_w = rect_h * PHI
+            if rect_w > vb_w:
+                rect_w = vb_w
+                rect_h = rect_w / PHI
 
-        x_offset = (self.width - rect_w) // 2
-        y_offset = (self.height - rect_h) // 2
-
-        cv2.rectangle(
-            canvas,
-            (x_offset, y_offset),
-            (x_offset + rect_w, y_offset + rect_h),
-            color,
-            1,
-        )
+        x_offset = (vb_w - rect_w) / 2
+        y_offset = (vb_h - rect_h) / 2
 
         x, y, w, h = x_offset, y_offset, rect_w, rect_h
         state = 0 if not is_portrait else 1
 
-        # Generates 12 sub-squares for deeper spiral precision
-        for _ in range(12):
+        squares = [(x_offset, y_offset, rect_w, rect_h)]
+        path_cmds = []
+        first = True
+
+        for _ in range(iterations):
             if w <= 2 or h <= 2:
                 break
 
             if state == 0:
                 s = min(h, w)
-                cv2.line(canvas, (x + s, y), (x + s, y + h), color, 1)
-                center = (x + s, y + h)
-                cv2.ellipse(canvas, center, (s, s), 0, 180, 270, color, thickness)
+                cx, cy, r = x + s, y + h, s
+                start_angle, end_angle = 180, 270
                 x += s
                 w -= s
             elif state == 1:
                 s = min(w, h)
-                cv2.line(canvas, (x, y + s), (x + w, y + s), color, 1)
-                center = (x, y + s)
-                cv2.ellipse(canvas, center, (s, s), 0, 270, 360, color, thickness)
+                cx, cy, r = x, y + s, s
+                start_angle, end_angle = 270, 360
                 y += s
                 h -= s
             elif state == 2:
                 s = min(h, w)
-                cv2.line(canvas, (x + w - s, y), (x + w - s, y + h), color, 1)
-                center = (x + w - s, y)
-                cv2.ellipse(canvas, center, (s, s), 0, 0, 90, color, thickness)
+                cx, cy, r = x + w - s, y, s
+                start_angle, end_angle = 0, 90
                 w -= s
-            elif state == 3:
+            else:
                 s = min(w, h)
-                cv2.line(canvas, (x, y + h - s), (x + w, y + h - s), color, 1)
-                center = (x + w, y + h - s)
-                cv2.ellipse(canvas, center, (s, s), 0, 90, 180, color, thickness)
+                cx, cy, r = x + w, y + h - s, s
+                start_angle, end_angle = 90, 180
                 h -= s
 
+            squares.append((x, y, w, h))
+
+            start_x = cx + r * np.cos(np.radians(start_angle))
+            start_y = cy + r * np.sin(np.radians(start_angle))
+            end_x = cx + r * np.cos(np.radians(end_angle))
+            end_y = cy + r * np.sin(np.radians(end_angle))
+
+            if first:
+                path_cmds.append(f"M {start_x:.2f},{start_y:.2f}")
+                first = False
+            path_cmds.append(f"A {r:.2f},{r:.2f} 0 0,1 {end_x:.2f},{end_y:.2f}")
+
             state = (state + 1) % 4
+
+        return {"squares": squares, "path": " ".join(path_cmds)}
+
+    def _draw_golden_spiral(self, canvas, color, thickness):
+        geometry = self.golden_spiral_svg_geometry(self.width, self.height)
+
+        for (sx, sy, sw, sh) in geometry["squares"]:
+            cv2.rectangle(
+                canvas,
+                (int(sx), int(sy)),
+                (int(sx + sw), int(sy + sh)),
+                color,
+                1,
+            )
+
+        # Rasterize the spiral path (a sequence of "M"/"A" commands) as an
+        # explicit polyline of small arc segments for cv2 drawing.
+        pts = []
+        for cmd in geometry["path"].split(" A "):
+            cmd = cmd.strip()
+            if cmd.startswith("M "):
+                x_str, y_str = cmd[2:].split(",")
+                pts.append((float(x_str), float(y_str)))
+            else:
+                parts = cmd.replace(",", " ").split()
+                # r r 0 0 1 x y
+                end_x, end_y = float(parts[-2]), float(parts[-1])
+                pts.append((end_x, end_y))
+
+        for i in range(len(pts) - 1):
+            cv2.line(
+                canvas,
+                (int(pts[i][0]), int(pts[i][1])),
+                (int(pts[i + 1][0]), int(pts[i + 1][1])),
+                color,
+                thickness,
+            )
 
     def draw_composition_guide(self, guide_type="Golden Spiral"):
         canvas = self.img.copy()
