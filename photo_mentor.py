@@ -315,6 +315,25 @@ class PhotoMentor:
         corrected_bgr = cv2.cvtColor((corrected * 255).astype(np.uint8), cv2.COLOR_RGB2BGR)
         return corrected_bgr
 
+    def simulate_colorblindness(self, img_bgr=None, cb_type="deuteranopia"):
+        """
+        Returns how the image would look to someone with the given dichromatic
+        color-vision-deficiency type — no correction applied. Useful for
+        showing a person what a given CVD type actually does to an image
+        (e.g. a sample color wheel) before/alongside offering the correction.
+        """
+        src = self.img if img_bgr is None else img_bgr
+        sim_matrix = self._CB_SIM.get(cb_type, self._CB_SIM["deuteranopia"])
+
+        rgb = cv2.cvtColor(src, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
+        flat = rgb.reshape(-1, 3).T
+
+        lms = self._CB_LMS_IN @ flat
+        lms_sim = sim_matrix @ lms
+        rgb_sim = np.clip((self._CB_LMS_OUT @ lms_sim).T.reshape(rgb.shape), 0, 1)
+
+        return cv2.cvtColor((rgb_sim * 255).astype(np.uint8), cv2.COLOR_RGB2BGR)
+
     # -----------------------------------------------------------------
     # Visual-Attention / Contrast Heatmap
     # -----------------------------------------------------------------
