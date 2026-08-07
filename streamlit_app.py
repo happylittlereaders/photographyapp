@@ -3,7 +3,9 @@ streamlit_app.py
 -----------------
 Web UI for "Golden Number" photography evaluation app.
 Features real-time camera viewfinders, photographer dataset presets, automatic style transfers,
-expanded Golden Spiral sub-squares, and pop-ups with 2 attributed sample images per composition guide.
+expanded Golden Spiral sub-squares, pop-ups with 2 attributed sample images per composition guide,
+draggable leading lines, editable adjustment sliders, colorblind-friendly output, and an
+attention/contrast heatmap.
 """
 
 import streamlit as st
@@ -11,6 +13,12 @@ import streamlit.components.v1 as components
 import numpy as np
 import cv2
 from PIL import Image
+
+try:
+    from streamlit_drawable_canvas import st_canvas
+    CANVAS_AVAILABLE = True
+except ImportError:
+    CANVAS_AVAILABLE = False
 
 # Import module and force reload to avoid cached import errors
 import photo_mentor
@@ -69,6 +77,32 @@ st.write(
     "Select a legendary photographer profile or use the default dataset. "
     "Align your composition using real-time dynamic overlays, then analyze and auto-correct your image into that photographer's signature style!"
 )
+
+# ---------------------------------------------------------------------
+# Shared Golden Spiral SVG builder
+# ---------------------------------------------------------------------
+def build_golden_spiral_svg_content(vb_w, vb_h, stroke_width=1.5, dash=None, opacity=0.85, color="#dcc86f"):
+    """
+    Builds SVG markup for the golden spiral overlay (nested sub-squares +
+    connecting spiral arc) using the shared geometry engine in PhotoMentor,
+    so the "Explain Guide" popup and the live viewfinder always render the
+    exact same, correct spiral.
+    """
+    geometry = PhotoMentor.golden_spiral_svg_geometry(vb_w, vb_h)
+    dash_attr = f' stroke-dasharray="{dash}"' if dash else ""
+
+    parts = []
+    for (sx, sy, sw, sh) in geometry["squares"]:
+        parts.append(
+            f'<rect x="{sx:.2f}" y="{sy:.2f}" width="{sw:.2f}" height="{sh:.2f}" '
+            f'fill="none" stroke="{color}" stroke-width="{stroke_width}"{dash_attr} opacity="{opacity}" />'
+        )
+    parts.append(
+        f'<path d="{geometry["path"]}" fill="none" stroke="{color}" '
+        f'stroke-width="{stroke_width * 1.8:.2f}" vector-effect="non-scaling-stroke" opacity="{min(1.0, opacity + 0.1)}" />'
+    )
+    return "\n".join(parts)
+
 
 # ---------------------------------------------------------------------
 # Composition Guide Information & 2 Attributed Sample Images Dictionary
@@ -212,34 +246,9 @@ def show_guide_dialog(guide_name):
             <circle cx="{vb_w * 0.382}" cy="{vb_h * 0.618}" r="8" fill="#dcc86f" />
             <circle cx="{vb_w * 0.618}" cy="{vb_h * 0.618}" r="8" fill="#dcc86f" />
         """
-    else:  # Golden Spiral
-        svg_overlay = """
-            <line x1="618.03" y1="0" x2="618.03" y2="618.03" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />
-            <line x1="618.03" y1="381.97" x2="1000" y2="381.97" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />
-            <line x1="763.93" y1="381.97" x2="763.93" y2="618.03" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />
-            <line x1="618.03" y1="472.14" x2="763.93" y2="472.14" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />
-            <line x1="708.20" y1="381.97" x2="708.20" y2="472.14" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />
-            <line x1="708.20" y1="437.69" x2="763.93" y2="437.69" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />
-            <line x1="729.49" y1="437.69" x2="729.49" y2="472.14" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />
-            <line x1="708.20" y1="450.85" x2="729.49" y2="450.85" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />
-            <line x1="721.36" y1="437.69" x2="721.36" y2="450.85" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />
-            <line x1="721.36" y1="442.72" x2="729.49" y2="442.72" stroke="#dcc86f" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.85" />
-
-            <path d="
-                M 0,618.03 
-                A 618.03,618.03 0 0,1 618.03,0 
-                A 381.97,381.97 0 0,1 1000,381.97 
-                A 236.07,236.07 0 0,1 763.93,618.03 
-                A 145.90,145.90 0 0,1 618.03,472.14 
-                A 90.17,90.17 0 0,1 708.20,381.97 
-                A 55.73,55.73 0 0,1 763.93,437.69 
-                A 34.44,34.44 0 0,1 729.49,472.14 
-                A 21.29,21.29 0 0,1 708.20,450.85
-                A 13.16,13.16 0 0,1 721.36,437.69
-                A 8.13,8.13 0 0,1 729.49,445.82
-            " fill="none" stroke="#dcc86f" stroke-width="3.5" />
-            <circle cx="725" cy="445" r="8" fill="#dcc86f" />
-        """
+    else:  # Golden Spiral / Golden Ratio — built from the shared, geometrically
+        # correct generator instead of hard-coded coordinates, so it always shows.
+        svg_overlay = build_golden_spiral_svg_content(vb_w, vb_h, stroke_width=2, opacity=0.9)
 
     # Side-by-side layout for 2 images
     col1, col2 = st.columns(2)
@@ -323,7 +332,8 @@ PHOTOGRAPHER_PRESETS = {
             "monochrome": False,
             "grain": False,
             "vignette": True,
-            "cool_shadows": True
+            "cool_shadows": True,
+            "warmth": 0.0
         }
     },
     "Henri Cartier-Bresson": {
@@ -407,33 +417,10 @@ def render_live_viewfinder(guide_type="Golden Spiral", aspect_ratio="1.618 / 1",
             <line x1="0" y1="{vb_h * 0.382}" x2="{vb_w}" y2="{vb_h * 0.382}" stroke="#dcc86f" stroke-width="1" />
             <line x1="0" y1="{vb_h * 0.618}" x2="{vb_w}" y2="{vb_h * 0.618}" stroke="#dcc86f" stroke-width="1" />
         """
-    else:  # Golden Spiral
-        svg_content = """
-            <line x1="618.03" y1="0" x2="618.03" y2="618.03" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
-            <line x1="618.03" y1="381.97" x2="1000" y2="381.97" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
-            <line x1="763.93" y1="381.97" x2="763.93" y2="618.03" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
-            <line x1="618.03" y1="472.14" x2="763.93" y2="472.14" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
-            <line x1="708.20" y1="381.97" x2="708.20" y2="472.14" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
-            <line x1="708.20" y1="437.69" x2="763.93" y2="437.69" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
-            <line x1="729.49" y1="437.69" x2="729.49" y2="472.14" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
-            <line x1="708.20" y1="450.85" x2="729.49" y2="450.85" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
-            <line x1="721.36" y1="437.69" x2="721.36" y2="450.85" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
-            <line x1="721.36" y1="442.72" x2="729.49" y2="442.72" stroke="#dcc86f" stroke-width="0.75" stroke-dasharray="3,3" opacity="0.45" />
-
-            <path d="
-                M 0,618.03 
-                A 618.03,618.03 0 0,1 618.03,0 
-                A 381.97,381.97 0 0,1 1000,381.97 
-                A 236.07,236.07 0 0,1 763.93,618.03 
-                A 145.90,145.90 0 0,1 618.03,472.14 
-                A 90.17,90.17 0 0,1 708.20,381.97 
-                A 55.73,55.73 0 0,1 763.93,437.69 
-                A 34.44,34.44 0 0,1 729.49,472.14 
-                A 21.29,21.29 0 0,1 708.20,450.85
-                A 13.16,13.16 0 0,1 721.36,437.69
-                A 8.13,8.13 0 0,1 729.49,445.82
-            " fill="none" stroke="#dcc86f" stroke-width="1.5" vector-effect="non-scaling-stroke" />
-        """
+    else:  # Golden Spiral / Golden Ratio — shared, geometrically correct generator.
+        svg_content = build_golden_spiral_svg_content(
+            vb_w, vb_h, stroke_width=0.75, dash="3,3", opacity=0.45, color="#dcc86f"
+        )
 
     viewfinder_html = f"""
     <!DOCTYPE html>
@@ -516,7 +503,7 @@ default_guide_idx = ["Golden Spiral", "Rule of Thirds", "Golden Triangles", "Gol
 
 with input_tab:
     st.subheader("1. Real-Time Viewfinder & Capture")
-    
+
     col_guide_sel, col_guide_btn = st.columns([3, 1])
     with col_guide_sel:
         selected_live_guide = st.selectbox(
@@ -532,7 +519,7 @@ with input_tab:
             show_guide_dialog(selected_live_guide)
 
     cam_col1, cam_col2 = st.columns([1, 1])
-    
+
     with cam_col1:
         st.markdown("**Live Composition Guide**")
         render_live_viewfinder(
@@ -540,7 +527,7 @@ with input_tab:
             aspect_ratio=active_preset["aspect_ratio"],
             viewbox=active_preset["viewbox"]
         )
-        
+
     with cam_col2:
         st.markdown("**Snap Photo**")
         camera_file = st.camera_input("Take Picture", key="live_cam_input")
@@ -572,19 +559,76 @@ if captured_bytes is not None:
     sharp_grade, sharp_advice, sharpness = mentor.analyze_sharpness()
     sat_grade, sat_advice, saturation = mentor.analyze_saturation()
 
+    # -------------------------------------------------------------
+    # 2. Fine-Tune Adjustments (editable sliders + revert button)
+    # -------------------------------------------------------------
     st.divider()
-    st.subheader(f"2. Metric Breakdown & {selected_preset_name} Tailored Fixes")
+    st.subheader("2. Fine-Tune Adjustments")
+    st.caption(
+        f"These start at the recommended values for **{selected_preset_name}**. "
+        "Drag any slider to override them, or revert back at any time."
+    )
+
+    # Reset sliders to the new preset's recommended values whenever the
+    # preset itself changes (not on every rerun).
+    if st.session_state.get("_active_preset_for_sliders") != selected_preset_name:
+        st.session_state["_active_preset_for_sliders"] = selected_preset_name
+        defaults = active_preset["style_config"]
+        st.session_state["user_contrast_factor"] = defaults.get("contrast_factor", 1.0)
+        st.session_state["user_saturation_factor"] = defaults.get("saturation_factor", 1.0)
+        st.session_state["user_warmth"] = defaults.get("warmth", 0.0)
+        st.session_state["user_monochrome"] = defaults.get("monochrome", False)
+        st.session_state["user_grain"] = defaults.get("grain", False)
+        st.session_state["user_vignette"] = defaults.get("vignette", False)
+
+    slider_col, revert_col = st.columns([4, 1])
+    with revert_col:
+        st.write("")
+        st.write("")
+        if st.button("↺ Revert to Recommended", use_container_width=True):
+            defaults = active_preset["style_config"]
+            st.session_state["user_contrast_factor"] = defaults.get("contrast_factor", 1.0)
+            st.session_state["user_saturation_factor"] = defaults.get("saturation_factor", 1.0)
+            st.session_state["user_warmth"] = defaults.get("warmth", 0.0)
+            st.session_state["user_monochrome"] = defaults.get("monochrome", False)
+            st.session_state["user_grain"] = defaults.get("grain", False)
+            st.session_state["user_vignette"] = defaults.get("vignette", False)
+            st.rerun()
+
+    with slider_col:
+        c1, c2 = st.columns(2)
+        with c1:
+            user_contrast = st.slider("Contrast", 0.5, 2.0, step=0.05, key="user_contrast_factor")
+            user_saturation = st.slider("Saturation", 0.0, 2.0, step=0.05, key="user_saturation_factor")
+            user_warmth = st.slider("Warmth (cool ↔ warm)", -2.0, 2.0, step=0.1, key="user_warmth")
+        with c2:
+            user_monochrome = st.checkbox("Monochrome", key="user_monochrome")
+            user_grain = st.checkbox("Film grain", key="user_grain")
+            user_vignette = st.checkbox("Vignette", key="user_vignette")
+
+    user_style_config = {
+        "contrast_factor": user_contrast,
+        "saturation_factor": user_saturation,
+        "warmth": user_warmth,
+        "monochrome": user_monochrome,
+        "grain": user_grain,
+        "vignette": user_vignette,
+        "cool_shadows": active_preset["style_config"].get("cool_shadows", False),
+    }
+
+    st.divider()
+    st.subheader(f"3. Metric Breakdown & {selected_preset_name} Tailored Fixes")
 
     def display_metric_section(title, grade, advice, metric_label, metric_value, is_imperfect, fix_func):
         st.markdown(f"### {title}: **{grade}**")
         st.caption(f"{metric_label}: {metric_value:.1f}")
         st.write(advice)
 
-        if is_imperfect or active_preset["style_config"].get("monochrome", False):
+        if is_imperfect or user_style_config.get("monochrome", False):
             st.warning(f"Adjustment applied matching {selected_preset_name} profile.")
-            
+
             if title in ["Exposure", "Sharpness", "Color Saturation"]:
-                fixed_bgr = fix_func(style_config=active_preset["style_config"])
+                fixed_bgr = fix_func(style_config=user_style_config)
             else:
                 fixed_bgr = fix_func()
 
@@ -624,11 +668,103 @@ if captured_bytes is not None:
         "Color Saturation", sat_grade, sat_advice, "Avg saturation (0-255)", saturation, sat_imperfect, mentor.fix_saturation
     )
 
-    st.subheader(f"3. Master Result: {selected_preset_name} Style")
+    # -------------------------------------------------------------
+    # 4. Add Leading Lines (draw + drag on the photo)
+    # -------------------------------------------------------------
+    st.subheader("4. Add Leading Lines")
+
+    lines_overlay_rgba = None
+
+    if not CANVAS_AVAILABLE:
+        st.warning(
+            "Leading-line drawing needs the `streamlit-drawable-canvas` package. "
+            "Add it to requirements.txt and reinstall to enable this section."
+        )
+    else:
+        st.caption(
+            "Draw a line by clicking-and-dragging across the photo. Switch to "
+            "'Move / edit lines' to drag existing lines into place, or 'Erase' to remove one."
+        )
+
+        line_mode = st.radio(
+            "Mode", ["Draw new line", "Move / edit lines", "Erase"], horizontal=True, key="leading_line_mode"
+        )
+        drawing_mode = {"Draw new line": "line", "Move / edit lines": "transform", "Erase": "transform"}[line_mode]
+
+        lc1, lc2 = st.columns(2)
+        with lc1:
+            line_color = st.color_picker("Leading line color", "#dcc86f", key="leading_line_color")
+        with lc2:
+            line_width = st.slider("Line thickness", 1, 12, 3, key="leading_line_width")
+
+        max_canvas_w = 700
+        scale = min(1.0, max_canvas_w / pil_image.width)
+        canvas_w = max(1, int(pil_image.width * scale))
+        canvas_h = max(1, int(pil_image.height * scale))
+        canvas_bg = pil_image.resize((canvas_w, canvas_h))
+
+        canvas_result = st_canvas(
+            fill_color="rgba(0,0,0,0)",
+            stroke_width=line_width,
+            stroke_color=line_color,
+            background_image=canvas_bg,
+            height=canvas_h,
+            width=canvas_w,
+            drawing_mode=drawing_mode,
+            key="leading_lines_canvas",
+        )
+
+        if canvas_result.image_data is not None and np.any(canvas_result.image_data[:, :, 3] > 0):
+            lines_overlay_rgba = Image.fromarray(
+                canvas_result.image_data.astype("uint8"), "RGBA"
+            ).resize(pil_image.size)
+
+            base_rgba = pil_image.convert("RGBA")
+            combined = Image.alpha_composite(base_rgba, lines_overlay_rgba).convert("RGB")
+            st.image(combined, caption="Photo with leading lines", use_container_width=True)
+
+    st.divider()
+
+    # -------------------------------------------------------------
+    # 5. Master Result: style, accessibility, and heatmap
+    # -------------------------------------------------------------
+    st.subheader(f"5. Master Result: {selected_preset_name} Style")
     st.write(f"Combines general technical corrections with color grading tailored to **{selected_preset_name}**.")
 
-    master_fixed_bgr = mentor.generate_master_fixed_image(active_preset["style_config"])
-    styled_bgr = mentor.apply_photographer_style(master_fixed_bgr, active_preset["style_config"])
+    acc_col1, acc_col2 = st.columns(2)
+    with acc_col1:
+        cb_enabled = st.checkbox("🎨 Colorblind-friendly mode", value=False)
+        cb_type_key = "deuteranopia"
+        if cb_enabled:
+            cb_choice = st.selectbox(
+                "Optimize for",
+                [
+                    "Deuteranopia — red-green (most common)",
+                    "Protanopia — red-green",
+                    "Tritanopia — blue-yellow",
+                ],
+            )
+            cb_type_key = {
+                "Deuteranopia — red-green (most common)": "deuteranopia",
+                "Protanopia — red-green": "protanopia",
+                "Tritanopia — blue-yellow": "tritanopia",
+            }[cb_choice]
+    with acc_col2:
+        show_heatmap = st.checkbox("🔥 Show attention / contrast heatmap", value=False)
+
+    master_fixed_bgr = mentor.generate_master_fixed_image(user_style_config)
+    styled_bgr = mentor.apply_photographer_style(master_fixed_bgr, user_style_config)
+
+    # Bake in any leading lines the user drew.
+    if lines_overlay_rgba is not None:
+        styled_rgba = cv2.cvtColor(styled_bgr, cv2.COLOR_BGR2RGBA)
+        styled_pil = Image.fromarray(styled_rgba, "RGBA")
+        styled_pil = Image.alpha_composite(styled_pil, lines_overlay_rgba)
+        styled_bgr = cv2.cvtColor(np.array(styled_pil.convert("RGB")), cv2.COLOR_RGB2BGR)
+
+    if cb_enabled:
+        styled_bgr = mentor.apply_colorblind_correction(styled_bgr, cb_type=cb_type_key)
+
     styled_rgb = cv2.cvtColor(styled_bgr, cv2.COLOR_BGR2RGB)
 
     m_col1, m_col2 = st.columns(2)
@@ -636,6 +772,15 @@ if captured_bytes is not None:
         st.image(pil_image, caption=f"Original Conformed Image ({active_preset['aspect_ratio']})", use_container_width=True)
     with m_col2:
         st.image(styled_rgb, caption=f"Final Output ({selected_preset_name} Preset)", use_container_width=True)
+
+    if show_heatmap:
+        heatmap_overlay, _ = mentor.generate_attention_heatmap(styled_bgr)
+        heatmap_rgb = cv2.cvtColor(heatmap_overlay, cv2.COLOR_BGR2RGB)
+        st.image(
+            heatmap_rgb,
+            caption="Attention heatmap — brighter areas are most likely to catch the eye",
+            use_container_width=True,
+        )
 
     success, encoded_img = cv2.imencode(".jpg", styled_bgr)
     if success:
