@@ -14,7 +14,7 @@ PHI = 1.61803398875
 class PhotoMentor:
     """Runs computer-vision checks and applies automatic fixes to photos."""
 
-    def __init__(self, image_path: str, target_aspect_ratio_str: str = None):
+    def __init__(self, image_path: str, target_aspect_ratio_str: str = None, max_dimension: int = 2200):
         self.image_path = image_path
         self.img = cv2.imread(image_path)
         if self.img is None:
@@ -26,6 +26,18 @@ class PhotoMentor:
         # Conform image aspect ratio to photographer preset if provided
         if target_aspect_ratio_str:
             self.img = self._crop_to_aspect_ratio(self.img, target_aspect_ratio_str)
+
+        # Cap resolution so heavy per-pixel operations (colorblind
+        # daltonization, the attention heatmap, composition-guide overlays,
+        # etc.) can't exhaust memory on very large phone-camera photos. This
+        # is purely a performance/stability guard, not a crop — aspect ratio
+        # is preserved and the whole frame is kept.
+        h, w = self.img.shape[:2]
+        longest_side = max(h, w)
+        if max_dimension and longest_side > max_dimension:
+            scale = max_dimension / longest_side
+            new_w, new_h = max(1, int(w * scale)), max(1, int(h * scale))
+            self.img = cv2.resize(self.img, (new_w, new_h), interpolation=cv2.INTER_AREA)
 
         self.gray = cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY)
         self.hsv = cv2.cvtColor(self.img, cv2.COLOR_BGR2HSV)
@@ -306,12 +318,13 @@ class PhotoMentor:
         tritanopia.
         """
         src = self.img if img_bgr is None else img_bgr
+        src = self._ensure_bgr_uint8(src)
         matrix = self._CB_SIM_RGB.get(cb_type, self._CB_SIM_RGB["deuteranopia"])
 
         rgb = cv2.cvtColor(src, cv2.COLOR_BGR2RGB)
         linear = self._srgb_to_linear(rgb)
-        flat = linear.reshape(-1, 3).T  # 3 x N
-        sim_linear = (matrix @ flat).T.reshape(linear.shape)
+        flat = np.ascontiguousarray(linear.reshape(-1, 3).T)  # 3 x N
+        sim_linear = np.ascontiguousarray((matrix @ flat).T).reshape(linear.shape)
 
         # Error = the color information lost in simulation.
         error = linear - sim_linear
@@ -331,15 +344,36 @@ class PhotoMentor:
         (e.g. a sample color wheel) before/alongside offering the correction.
         """
         src = self.img if img_bgr is None else img_bgr
+        src = self._ensure_bgr_uint8(src)
         matrix = self._CB_SIM_RGB.get(cb_type, self._CB_SIM_RGB["deuteranopia"])
 
         rgb = cv2.cvtColor(src, cv2.COLOR_BGR2RGB)
         linear = self._srgb_to_linear(rgb)
-        flat = linear.reshape(-1, 3).T
-        sim_linear = (matrix @ flat).T.reshape(linear.shape)
+        flat = np.ascontiguousarray(linear.reshape(-1, 3).T)
+        sim_linear = np.ascontiguousarray((matrix @ flat).T).reshape(linear.shape)
         sim_rgb = self._linear_to_srgb(sim_linear)
 
         return cv2.cvtColor(sim_rgb, cv2.COLOR_RGB2BGR)
+
+    @staticmethod
+    def _ensure_bgr_uint8(img):
+        """
+        Normalizes an input array to a contiguous, 3-channel uint8 BGR image
+        before it hits color-space math, so an unusual upload (RGBA slipping
+        through, a float array, a non-contiguous view from earlier slicing)
+        can't throw a shape/dtype error deep inside the CVD transform.
+        """
+        if img is None:
+            raise ValueError("Image is None.")
+        if img.ndim == 2:
+            img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+        elif img.ndim == 3 and img.shape[2] == 4:
+            img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+        elif img.ndim == 3 and img.shape[2] == 1:
+            img = cv2.cvtColor(img[:, :, 0], cv2.COLOR_GRAY2BGR)
+        if img.dtype != np.uint8:
+            img = np.clip(img, 0, 255).astype(np.uint8)
+        return np.ascontiguousarray(img)
 
     # -----------------------------------------------------------------
     # Visual-Attention / Contrast Heatmap
