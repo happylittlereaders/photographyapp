@@ -1103,7 +1103,12 @@ if captured_bytes is not None:
     cb_type_key = cb_key_by_label[cb_label_choice]
     cb_enabled = cb_type_key != "off"
 
-    show_heatmap = st.checkbox("🔥 Show attention / contrast heatmap", value=False)
+    if "show_heatmap" not in st.session_state:
+        st.session_state["show_heatmap"] = False
+    heatmap_btn_label = "🔥 Hide Attention Heatmap" if st.session_state["show_heatmap"] else "🔥 Show Attention Heatmap"
+    if st.button(heatmap_btn_label, use_container_width=False):
+        st.session_state["show_heatmap"] = not st.session_state["show_heatmap"]
+    show_heatmap = st.session_state["show_heatmap"]
 
     master_fixed_bgr = mentor.generate_master_fixed_image(user_style_config)
     styled_bgr = mentor.apply_photographer_style(master_fixed_bgr, user_style_config)
@@ -1130,21 +1135,17 @@ if captured_bytes is not None:
         heatmap_overlay, _ = mentor.generate_attention_heatmap(styled_bgr)
         heatmap_rgb = cv2.cvtColor(heatmap_overlay, cv2.COLOR_BGR2RGB)
 
-        hm_img_col, hm_text_col = st.columns([1, 1.4])
+        hm_img_col, hm_text_col = st.columns([1, 1.2])
         with hm_img_col:
-            st.image(heatmap_rgb, width=300)
+            st.image(heatmap_rgb, width=440)
         with hm_text_col:
-            st.markdown(
-                "<div style='font-size:1.35rem; font-weight:800; color:#dcc86f; margin-bottom:6px;'>"
-                "🔥 Attention Heatmap</div>",
-                unsafe_allow_html=True,
-            )
-            st.markdown(
-                "This shows where a viewer's eye is most likely to land first. "
-                "**Red and yellow** areas combine strong local contrast, sharp edges, and vivid color — "
-                "the visual cues that naturally pull attention. **Blue and dark** areas are flatter, "
-                "softer, or less saturated, so the eye tends to skip past them. Use it to check whether "
-                "your main subject is actually the most eye-catching part of the frame."
+            st.markdown("##### 🔥 Attention Heatmap")
+            st.caption(
+                "This shows where a viewer's eye is most likely to land first. Red and yellow areas "
+                "combine strong local contrast, sharp edges, and vivid color — the cues that naturally "
+                "pull attention. Blue and dark areas are flatter or less saturated, so the eye tends to "
+                "skip past them. Use it to check whether your main subject is actually the most "
+                "eye-catching part of the frame."
             )
 
     success, encoded_img = cv2.imencode(".jpg", styled_bgr)
