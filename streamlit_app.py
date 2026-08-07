@@ -134,6 +134,31 @@ def build_golden_spiral_svg_content(vb_w, vb_h, stroke_width=1.5, dash=None, opa
     return "\n".join(parts)
 
 
+def generate_hue_wheel(size=140):
+    """
+    Renders a full-saturation hue wheel as a BGR numpy array. Used as a
+    reference image so people can see exactly how each type of color vision
+    deficiency shifts perceived hues, independent of whatever photo they've
+    taken.
+    """
+    yy, xx = np.mgrid[0:size, 0:size].astype(np.float32)
+    cx = cy = size / 2
+    dx, dy = xx - cx, yy - cy
+    radius = np.sqrt(dx ** 2 + dy ** 2)
+    angle = (np.degrees(np.arctan2(dy, dx)) + 360) % 360
+
+    hue = (angle / 360 * 179).astype(np.uint8)
+    sat = np.clip((radius / (size / 2)) * 255, 0, 255).astype(np.uint8)
+    val = np.full((size, size), 255, dtype=np.uint8)
+
+    hsv = np.dstack([hue, sat, val])
+    bgr = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+
+    mask = radius > (size / 2)
+    bgr[mask] = 15  # near-black outside the circle, matches the dark theme
+    return bgr
+
+
 # ---------------------------------------------------------------------
 # Composition Guide Information & 2 Attributed Sample Images Dictionary
 # ---------------------------------------------------------------------
@@ -410,6 +435,203 @@ PHOTOGRAPHER_PRESETS = {
     }
 }
 
+# ---------------------------------------------------------------------
+# Photographer Bios & 2 Attributed Sample Images (same pattern as the
+# composition-guide dialogs: generic, freely-licensed stock photos that
+# evoke each photographer's real style, not reproductions of their actual
+# copyrighted work).
+# ---------------------------------------------------------------------
+PHOTOGRAPHER_INFO = {
+    "Default (Golden Ratio)": {
+        "title": "✨ Default (Golden Ratio)",
+        "bio": (
+            "A neutral baseline preset with no signature color grading — just a gentle contrast and "
+            "saturation lift on top of the golden-ratio (1.618:1) frame. A good starting point before "
+            "trying one of the named photographer styles below."
+        ),
+        "samples": [
+            {
+                "img_url": "https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?w=800&auto=format&fit=crop",
+                "page_url": "https://unsplash.com/photos/ES2-KaB4RNo",
+                "caption": "Balanced, natural color and contrast — no strong stylistic bias.",
+                "citation": "Photo by Luca Bravo via Unsplash",
+            },
+            {
+                "img_url": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&auto=format&fit=crop",
+                "page_url": "https://unsplash.com/photos/KMn4VEeE21U",
+                "caption": "Works equally well for landscapes, portraits, and everyday shots.",
+                "citation": "Photo by Sean Oulashin via Unsplash",
+            },
+        ],
+    },
+    "Dorothea Lange": {
+        "title": "📷 Dorothea Lange (1895–1965)",
+        "bio": (
+            "An American documentary photographer best known for her Farm Security Administration work "
+            "during the Great Depression. Her style favored unflinching black-and-white realism, deep "
+            "tonal detail in shadows, and a humanist focus on ordinary people's dignity."
+        ),
+        "samples": [
+            {
+                "img_url": "https://images.unsplash.com/photo-1648056297514-8a4971f89960?w=800&auto=format&fit=crop",
+                "page_url": "https://unsplash.com/photos/k1zWS4J3xjI",
+                "caption": "Example image evoking Lange's close, humanist documentary portraiture.",
+                "citation": "Photo by nygi via Unsplash",
+            },
+            {
+                "img_url": "https://images.unsplash.com/photo-1732631591676-d1d96bf18331?w=800&auto=format&fit=crop",
+                "page_url": "https://unsplash.com/photos/f5RIH6GIjVo",
+                "caption": "Example image reminiscent of her deep-shadow, high-detail tonal range.",
+                "citation": "Photo by Victor Rosario via Unsplash",
+            },
+        ],
+    },
+    "Vivian Maier": {
+        "title": "📷 Vivian Maier (1926–2009)",
+        "bio": (
+            "An American street photographer who worked for decades as a nanny; her enormous archive of "
+            "candid black-and-white and color street photography was discovered and made public only "
+            "after her death. Known for punchy contrast and a sharp eye for fleeting city moments."
+        ),
+        "samples": [
+            {
+                "img_url": "https://images.unsplash.com/photo-1731474962725-4e2fd1a0d442?w=800&auto=format&fit=crop",
+                "page_url": "https://unsplash.com/photos/LFBNkPfWYe8",
+                "caption": "Example image evoking Maier's candid, punchy-contrast street style.",
+                "citation": "Photo by Ben Bouvier-Farrell via Unsplash",
+            },
+            {
+                "img_url": "https://images.unsplash.com/photo-1722870800042-232a821a4bf6?w=800&auto=format&fit=crop",
+                "page_url": "https://unsplash.com/photos/84Rx7igVVeI",
+                "caption": "Example image reminiscent of her nighttime urban candid scenes.",
+                "citation": "Photo by Alexandros Giannakakis via Unsplash",
+            },
+        ],
+    },
+    "Annie Leibovitz": {
+        "title": "📷 Annie Leibovitz (b. 1949)",
+        "bio": (
+            "A contemporary American portrait photographer known for bold, cinematic editorial work for "
+            "magazines like Rolling Stone and Vanity Fair. Her style favors dramatic studio lighting, "
+            "rich cool shadows, and high color depth."
+        ),
+        "samples": [
+            {
+                "img_url": "https://images.unsplash.com/photo-1748354340469-8ccbaeeec585?w=800&auto=format&fit=crop",
+                "page_url": "https://unsplash.com/photos/nFt0AuZHGi4",
+                "caption": "Example image evoking Leibovitz's dramatic, cinematic studio lighting.",
+                "citation": "Photo by Luiz Rogério Nunes via Unsplash",
+            },
+            {
+                "img_url": "https://images.unsplash.com/photo-1748285047972-1869a9d8d873?w=800&auto=format&fit=crop",
+                "page_url": "https://unsplash.com/photos/SkFhEYuz0Qk",
+                "caption": "Example image reminiscent of her bold color and shadow work.",
+                "citation": "Photo by lhon karwan via Unsplash",
+            },
+        ],
+    },
+    "Henri Cartier-Bresson": {
+        "title": "📷 Henri Cartier-Bresson (1908–2004)",
+        "bio": (
+            "A French photographer and co-founder of Magnum Photos, celebrated for candid black-and-white "
+            "street photography built around his concept of the 'decisive moment' — and for a sharp eye "
+            "for geometric composition."
+        ),
+        "samples": [
+            {
+                "img_url": "https://images.unsplash.com/photo-1756259291906-873f00c0866d?w=800&auto=format&fit=crop",
+                "page_url": "https://unsplash.com/photos/pFv5PYlDQBk",
+                "caption": "Example image evoking Cartier-Bresson's geometric, high-contrast eye.",
+                "citation": "Photo by Sebastian Schuster via Unsplash",
+            },
+            {
+                "img_url": "https://images.unsplash.com/photo-1731474962725-4e2fd1a0d442?w=800&auto=format&fit=crop",
+                "page_url": "https://unsplash.com/photos/LFBNkPfWYe8",
+                "caption": "Example image reminiscent of his candid, in-the-moment street scenes.",
+                "citation": "Photo by Ben Bouvier-Farrell via Unsplash",
+            },
+        ],
+    },
+    "Ansel Adams": {
+        "title": "📷 Ansel Adams (1902–1984)",
+        "bio": (
+            "An American landscape photographer renowned for large-format black-and-white images of the "
+            "American West, especially Yosemite. His Zone System technique achieved deep tonal control, "
+            "from pure black shadows to crisp, detailed highlights."
+        ),
+        "samples": [
+            {
+                "img_url": "https://images.unsplash.com/photo-1719512867124-9ea3bc4d8f1d?w=800&auto=format&fit=crop",
+                "page_url": "https://unsplash.com/photos/lTUPOqsJbC0",
+                "caption": "Example image evoking Adams's deep-black, high-detail mountain landscapes.",
+                "citation": "Photo by Marek Piwnicki via Unsplash",
+            },
+            {
+                "img_url": "https://images.unsplash.com/photo-1565945985125-a59c660a9932?w=800&auto=format&fit=crop",
+                "page_url": "https://unsplash.com/photos/MFA1V_nabPk",
+                "caption": "Example image reminiscent of his grand-vista Zone System tonal range.",
+                "citation": "Photo by Random Institute via Unsplash",
+            },
+        ],
+    },
+    "Steve McCurry": {
+        "title": "📷 Steve McCurry (b. 1950)",
+        "bio": (
+            "An American photojournalist known for vivid color travel and documentary photography, "
+            "including the iconic 'Afghan Girl' National Geographic cover. His work favors saturated "
+            "color, warm tones, and strong, direct human subjects."
+        ),
+        "samples": [
+            {
+                "img_url": "https://images.unsplash.com/photo-1758745464235-ccb8c1253074?w=800&auto=format&fit=crop",
+                "page_url": "https://unsplash.com/photos/3dVx9j1iepM",
+                "caption": "Example image evoking McCurry's saturated, vivid travel palette.",
+                "citation": "Photo by Alessio Roversi via Unsplash",
+            },
+            {
+                "img_url": "https://images.unsplash.com/photo-1779518079934-4c60db23e4a0?w=800&auto=format&fit=crop",
+                "page_url": "https://unsplash.com/photos/xsuDvDURakI",
+                "caption": "Example image reminiscent of his warm, narrative travel portraiture.",
+                "citation": "Photo by Subhashis Das via Unsplash",
+            },
+        ],
+    },
+}
+
+
+@st.dialog("Photographer Style & Examples", width="large")
+def show_photographer_dialog(name):
+    info = PHOTOGRAPHER_INFO.get(name)
+    if info is None:
+        st.write("No information available for this preset.")
+        if st.button("Close", use_container_width=True):
+            st.rerun()
+        return
+
+    st.subheader(info["title"])
+    st.write(info["bio"])
+    st.markdown("---")
+
+    col1, col2 = st.columns(2)
+    for idx, col in enumerate([col1, col2]):
+        sample = info["samples"][idx]
+        with col:
+            st.markdown(
+                f"""
+                <div style="width:100%; border: 1.5px solid #dcc86f; border-radius: 8px; overflow: hidden; background: #1a1a1a;">
+                    <img src="{sample['img_url']}" style="width: 100%; display: block; filter: brightness(0.92);" />
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            st.markdown(f"**{sample['caption']}**")
+            st.markdown(f"[{sample['citation']}]({sample['page_url']})")
+
+    st.write("")
+    if st.button("Close", use_container_width=True, key="close_photographer_dialog"):
+        st.rerun()
+
+
 # Select Preset
 selected_preset_name = st.selectbox(
     "📸 Choose Photographer Style / Dataset",
@@ -418,7 +640,37 @@ selected_preset_name = st.selectbox(
 )
 
 active_preset = PHOTOGRAPHER_PRESETS[selected_preset_name]
-st.info(f"**Style Note:** {active_preset['description']}")
+
+hero_col, hero_btn_col = st.columns([5, 1])
+with hero_col:
+    st.markdown(
+        f"""
+        <div style="
+            border: 2px solid #dcc86f;
+            border-radius: 14px;
+            padding: 20px 26px;
+            margin: 6px 0 20px 0;
+            background: linear-gradient(135deg, rgba(220,200,111,0.14) 0%, rgba(220,200,111,0.02) 100%);
+        ">
+            <div style="font-size: 0.75rem; letter-spacing: 2px; text-transform: uppercase; color: #dcc86f; opacity: 0.85; margin-bottom: 6px;">
+                Active Photographer Preset
+            </div>
+            <div style="font-size: 2.1rem; font-weight: 800; color: #dcc86f; line-height: 1.15; text-shadow: 0px 0px 10px rgba(220,200,111,0.35);">
+                {selected_preset_name}
+            </div>
+            <div style="font-size: 1.02rem; color: #e8e8e8; margin-top: 10px; max-width: 720px;">
+                {active_preset['description']}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+with hero_btn_col:
+    st.write("")
+    st.write("")
+    st.write("")
+    if st.button("ℹ️ About & Examples", use_container_width=True):
+        show_photographer_dialog(selected_preset_name)
 
 # ---------------------------------------------------------------------
 # Helper: Precise Dynamic Viewfinder Component
@@ -812,26 +1064,46 @@ if captured_bytes is not None:
     st.subheader(f"5. Master Result: {selected_preset_name} Style")
     st.write(f"Combines general technical corrections with color grading tailored to **{selected_preset_name}**.")
 
-    acc_col1, acc_col2 = st.columns(2)
-    with acc_col1:
-        cb_enabled = st.checkbox("🎨 Colorblind-friendly mode", value=False)
-        cb_type_key = "deuteranopia"
-        if cb_enabled:
-            cb_choice = st.selectbox(
-                "Optimize for",
-                [
-                    "Deuteranopia — red-green (most common)",
-                    "Protanopia — red-green",
-                    "Tritanopia — blue-yellow",
-                ],
+    st.markdown("**🎨 Colorblind-Friendly Mode**")
+    st.caption(
+        "Preview how a color wheel looks with each common type of color vision deficiency, "
+        "then pick one to optimize your final photo for."
+    )
+
+    CB_TYPES = [
+        ("off", "Normal Vision", None),
+        ("deuteranopia", "Deuteranopia", "Red–green, most common"),
+        ("protanopia", "Protanopia", "Red–green"),
+        ("tritanopia", "Tritanopia", "Blue–yellow, rare"),
+    ]
+
+    reference_wheel_bgr = generate_hue_wheel(140)
+    wheel_cols = st.columns(4)
+    for (cb_key, cb_label, cb_subtitle), wcol in zip(CB_TYPES, wheel_cols):
+        with wcol:
+            if cb_key == "off":
+                preview_bgr = reference_wheel_bgr
+            else:
+                preview_bgr = mentor.simulate_colorblindness(reference_wheel_bgr, cb_type=cb_key)
+            st.image(cv2.cvtColor(preview_bgr, cv2.COLOR_BGR2RGB), use_container_width=True)
+            st.markdown(
+                f"<div style='text-align:center; font-size:0.85rem;'><b>{cb_label}</b>"
+                + (f"<br><span style='opacity:0.7;'>{cb_subtitle}</span>" if cb_subtitle else "")
+                + "</div>",
+                unsafe_allow_html=True,
             )
-            cb_type_key = {
-                "Deuteranopia — red-green (most common)": "deuteranopia",
-                "Protanopia — red-green": "protanopia",
-                "Tritanopia — blue-yellow": "tritanopia",
-            }[cb_choice]
-    with acc_col2:
-        show_heatmap = st.checkbox("🔥 Show attention / contrast heatmap", value=False)
+
+    cb_label_choice = st.radio(
+        "Optimize final photo for:",
+        [label for _, label, _ in CB_TYPES],
+        horizontal=True,
+        index=0,
+    )
+    cb_key_by_label = {label: key for key, label, _ in CB_TYPES}
+    cb_type_key = cb_key_by_label[cb_label_choice]
+    cb_enabled = cb_type_key != "off"
+
+    show_heatmap = st.checkbox("🔥 Show attention / contrast heatmap", value=False)
 
     master_fixed_bgr = mentor.generate_master_fixed_image(user_style_config)
     styled_bgr = mentor.apply_photographer_style(master_fixed_bgr, user_style_config)
@@ -857,11 +1129,23 @@ if captured_bytes is not None:
     if show_heatmap:
         heatmap_overlay, _ = mentor.generate_attention_heatmap(styled_bgr)
         heatmap_rgb = cv2.cvtColor(heatmap_overlay, cv2.COLOR_BGR2RGB)
-        st.image(
-            heatmap_rgb,
-            caption="Attention heatmap — brighter areas are most likely to catch the eye",
-            use_container_width=True,
-        )
+
+        hm_img_col, hm_text_col = st.columns([1, 1.4])
+        with hm_img_col:
+            st.image(heatmap_rgb, width=300)
+        with hm_text_col:
+            st.markdown(
+                "<div style='font-size:1.35rem; font-weight:800; color:#dcc86f; margin-bottom:6px;'>"
+                "🔥 Attention Heatmap</div>",
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                "This shows where a viewer's eye is most likely to land first. "
+                "**Red and yellow** areas combine strong local contrast, sharp edges, and vivid color — "
+                "the visual cues that naturally pull attention. **Blue and dark** areas are flatter, "
+                "softer, or less saturated, so the eye tends to skip past them. Use it to check whether "
+                "your main subject is actually the most eye-catching part of the frame."
+            )
 
     success, encoded_img = cv2.imencode(".jpg", styled_bgr)
     if success:
