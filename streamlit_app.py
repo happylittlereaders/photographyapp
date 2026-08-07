@@ -15,8 +15,34 @@ import cv2
 from PIL import Image
 
 try:
+    # streamlit-drawable-canvas-fix is the maintained fork of the original
+    # (now-archived) streamlit-drawable-canvas package; it keeps the same
+    # `streamlit_drawable_canvas` import path so this is a drop-in swap.
     from streamlit_drawable_canvas import st_canvas
     CANVAS_AVAILABLE = True
+
+    # Belt-and-suspenders: newer Streamlit releases moved
+    # `image_to_url` out of streamlit.elements.image, which crashes any
+    # canvas-style component (including forks) built against the old path.
+    # If it's missing, patch a compatible shim back in so a future Streamlit
+    # upgrade can't silently break this section again.
+    try:
+        import streamlit.elements.image as _st_image_module
+        if not hasattr(_st_image_module, "image_to_url"):
+            import base64 as _b64
+            import io as _io
+
+            def _image_to_url_shim(image, *_args, **_kwargs):
+                if not isinstance(image, Image.Image):
+                    image = Image.fromarray(image)
+                buf = _io.BytesIO()
+                image.save(buf, format="PNG")
+                encoded = _b64.b64encode(buf.getvalue()).decode()
+                return f"data:image/png;base64,{encoded}"
+
+            _st_image_module.image_to_url = _image_to_url_shim
+    except Exception:
+        pass
 except ImportError:
     CANVAS_AVAILABLE = False
 
