@@ -607,29 +607,30 @@ if captured_bytes is not None:
         st.session_state["user_grain"] = defaults.get("grain", False)
         st.session_state["user_vignette"] = defaults.get("vignette", False)
 
-    slider_col, revert_col = st.columns([4, 1])
-    with revert_col:
-        st.write("")
-        st.write("")
-        if st.button("↺ Revert to Recommended", use_container_width=True):
-            defaults = active_preset["style_config"]
-            st.session_state["user_contrast_factor"] = defaults.get("contrast_factor", 1.0)
-            st.session_state["user_saturation_factor"] = defaults.get("saturation_factor", 1.0)
-            st.session_state["user_warmth"] = defaults.get("warmth", 0.0)
-            st.session_state["user_monochrome"] = defaults.get("monochrome", False)
-            st.session_state["user_grain"] = defaults.get("grain", False)
-            st.session_state["user_vignette"] = defaults.get("vignette", False)
-            st.rerun()
+    preview_col, slider_col = st.columns([1, 1])
 
     with slider_col:
-        c1, c2 = st.columns(2)
-        with c1:
-            user_contrast = st.slider("Contrast", 0.5, 2.0, step=0.05, key="user_contrast_factor")
-            user_saturation = st.slider("Saturation", 0.0, 2.0, step=0.05, key="user_saturation_factor")
-            user_warmth = st.slider("Warmth (cool ↔ warm)", -2.0, 2.0, step=0.1, key="user_warmth")
-        with c2:
+        revert_row, _ = st.columns([2, 1])
+        with revert_row:
+            if st.button("↺ Revert to Recommended", use_container_width=True):
+                defaults = active_preset["style_config"]
+                st.session_state["user_contrast_factor"] = defaults.get("contrast_factor", 1.0)
+                st.session_state["user_saturation_factor"] = defaults.get("saturation_factor", 1.0)
+                st.session_state["user_warmth"] = defaults.get("warmth", 0.0)
+                st.session_state["user_monochrome"] = defaults.get("monochrome", False)
+                st.session_state["user_grain"] = defaults.get("grain", False)
+                st.session_state["user_vignette"] = defaults.get("vignette", False)
+                st.rerun()
+
+        user_contrast = st.slider("Contrast", 0.5, 2.0, step=0.05, key="user_contrast_factor")
+        user_saturation = st.slider("Saturation", 0.0, 2.0, step=0.05, key="user_saturation_factor")
+        user_warmth = st.slider("Warmth (cool ↔ warm)", -2.0, 2.0, step=0.1, key="user_warmth")
+        cb1, cb2, cb3 = st.columns(3)
+        with cb1:
             user_monochrome = st.checkbox("Monochrome", key="user_monochrome")
+        with cb2:
             user_grain = st.checkbox("Film grain", key="user_grain")
+        with cb3:
             user_vignette = st.checkbox("Vignette", key="user_vignette")
 
     user_style_config = {
@@ -641,6 +642,14 @@ if captured_bytes is not None:
         "vignette": user_vignette,
         "cool_shadows": active_preset["style_config"].get("cool_shadows", False),
     }
+
+    with preview_col:
+        st.markdown("**Live Preview**")
+        st.caption("Updates as you move the sliders (composition & leading lines are applied later).")
+        preview_master = mentor.generate_master_fixed_image(user_style_config)
+        preview_styled = mentor.apply_photographer_style(preview_master, user_style_config)
+        preview_rgb = cv2.cvtColor(preview_styled, cv2.COLOR_BGR2RGB)
+        st.image(preview_rgb, use_container_width=True)
 
     st.divider()
     st.subheader(f"3. Metric Breakdown & {selected_preset_name} Tailored Fixes")
@@ -703,19 +712,19 @@ if captured_bytes is not None:
 
     if not CANVAS_AVAILABLE:
         st.warning(
-            "Leading-line drawing needs the `streamlit-drawable-canvas` package. "
+            "Leading-line drawing needs the `streamlit-drawable-canvas-fix` package. "
             "Add it to requirements.txt and reinstall to enable this section."
         )
     else:
         st.caption(
             "Draw a line by clicking-and-dragging across the photo. Switch to "
-            "'Move / edit lines' to drag existing lines into place, or 'Erase' to remove one."
+            "'Move / edit lines' to drag an existing line into place."
         )
 
         line_mode = st.radio(
-            "Mode", ["Draw new line", "Move / edit lines", "Erase"], horizontal=True, key="leading_line_mode"
+            "Mode", ["Draw new line", "Move / edit lines"], horizontal=True, key="leading_line_mode"
         )
-        drawing_mode = {"Draw new line": "line", "Move / edit lines": "transform", "Erase": "transform"}[line_mode]
+        drawing_mode = {"Draw new line": "line", "Move / edit lines": "transform"}[line_mode]
 
         lc1, lc2 = st.columns(2)
         with lc1:
@@ -723,11 +732,41 @@ if captured_bytes is not None:
         with lc2:
             line_width = st.slider("Line thickness", 1, 12, 3, key="leading_line_width")
 
+        # The component's own built-in undo/redo/clear toolbar renders inside
+        # its iframe with dark icons on a dark background and can't be
+        # restyled from here, so it's turned off in favor of native,
+        # brand-colored Streamlit buttons backed by a small history stack.
+        if "canvas_key_version" not in st.session_state:
+            st.session_state["canvas_key_version"] = 0
+        if "canvas_snapshots" not in st.session_state:
+            st.session_state["canvas_snapshots"] = []
+
+        undo_col, clear_col, _ = st.columns([1, 1, 2])
+        with undo_col:
+            if st.button(
+                "↺ Undo last line", use_container_width=True,
+                disabled=not st.session_state["canvas_snapshots"],
+            ):
+                st.session_state["canvas_snapshots"].pop()
+                st.session_state["canvas_key_version"] += 1
+                st.rerun()
+        with clear_col:
+            if st.button(
+                "🗑️ Clear all lines", use_container_width=True,
+                disabled=not st.session_state["canvas_snapshots"],
+            ):
+                st.session_state["canvas_snapshots"] = []
+                st.session_state["canvas_key_version"] += 1
+                st.rerun()
+
         max_canvas_w = 700
         scale = min(1.0, max_canvas_w / pil_image.width)
         canvas_w = max(1, int(pil_image.width * scale))
         canvas_h = max(1, int(pil_image.height * scale))
         canvas_bg = pil_image.resize((canvas_w, canvas_h))
+
+        initial_drawing = st.session_state["canvas_snapshots"][-1] if st.session_state["canvas_snapshots"] else None
+        canvas_key = f"leading_lines_canvas_{st.session_state['canvas_key_version']}"
 
         canvas_result = st_canvas(
             fill_color="rgba(0,0,0,0)",
@@ -737,8 +776,19 @@ if captured_bytes is not None:
             height=canvas_h,
             width=canvas_w,
             drawing_mode=drawing_mode,
-            key="leading_lines_canvas",
+            initial_drawing=initial_drawing,
+            display_toolbar=False,
+            key=canvas_key,
         )
+
+        # Track a snapshot each time a new line is added, so "Undo" has
+        # something to roll back to.
+        if canvas_result.json_data is not None:
+            objects = canvas_result.json_data.get("objects", [])
+            snapshots = st.session_state["canvas_snapshots"]
+            prev_len = len(snapshots[-1].get("objects", [])) if snapshots else 0
+            if len(objects) > prev_len:
+                snapshots.append(canvas_result.json_data)
 
         if canvas_result.image_data is not None and np.any(canvas_result.image_data[:, :, 3] > 0):
             lines_overlay_rgba = Image.fromarray(
@@ -748,6 +798,7 @@ if captured_bytes is not None:
             base_rgba = pil_image.convert("RGBA")
             combined = Image.alpha_composite(base_rgba, lines_overlay_rgba).convert("RGB")
             st.image(combined, caption="Photo with leading lines", use_container_width=True)
+
 
     st.divider()
 
