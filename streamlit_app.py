@@ -14,6 +14,9 @@ import numpy as np
 import cv2
 from PIL import Image
 
+import base64
+import io
+
 try:
     # streamlit-drawable-canvas-fix is the maintained fork of the original
     # (now-archived) streamlit-drawable-canvas package; it keeps the same
@@ -21,26 +24,27 @@ try:
     from streamlit_drawable_canvas import st_canvas
     CANVAS_AVAILABLE = True
 
-    # Belt-and-suspenders: newer Streamlit releases moved
-    # `image_to_url` out of streamlit.elements.image, which crashes any
-    # canvas-style component (including forks) built against the old path.
-    # If it's missing, patch a compatible shim back in so a future Streamlit
-    # upgrade can't silently break this section again.
+    # The canvas's background image normally goes through Streamlit's
+    # image_to_url helper, which for non-tiny images serves it from
+    # Streamlit's MediaFileManager as a separate URL the browser fetches
+    # after the component mounts. That fetch can race the media manager
+    # registering the file — especially inside conditional blocks (like
+    # ours, gated on an uploaded photo) or on Streamlit Cloud — and the
+    # canvas renders solid black when it loses that race. Forcing every
+    # background image to inline as a base64 data URI instead removes the
+    # extra network round-trip entirely, so there's nothing to race.
     try:
         import streamlit.elements.image as _st_image_module
-        if not hasattr(_st_image_module, "image_to_url"):
-            import base64 as _b64
-            import io as _io
 
-            def _image_to_url_shim(image, *_args, **_kwargs):
-                if not isinstance(image, Image.Image):
-                    image = Image.fromarray(image)
-                buf = _io.BytesIO()
-                image.save(buf, format="PNG")
-                encoded = _b64.b64encode(buf.getvalue()).decode()
-                return f"data:image/png;base64,{encoded}"
+        def _inline_data_uri(image, *_args, **_kwargs):
+            if not isinstance(image, Image.Image):
+                image = Image.fromarray(image)
+            buf = io.BytesIO()
+            image.convert("RGB").save(buf, format="PNG")
+            encoded = base64.b64encode(buf.getvalue()).decode()
+            return f"data:image/png;base64,{encoded}"
 
-            _st_image_module.image_to_url = _image_to_url_shim
+        _st_image_module.image_to_url = _inline_data_uri
     except Exception:
         pass
 except ImportError:
@@ -763,7 +767,7 @@ if captured_bytes is not None:
         scale = min(1.0, max_canvas_w / pil_image.width)
         canvas_w = max(1, int(pil_image.width * scale))
         canvas_h = max(1, int(pil_image.height * scale))
-        canvas_bg = pil_image.resize((canvas_w, canvas_h))
+        canvas_bg = pil_image.resize((canvas_w, canvas_h), Image.LANCZOS)
 
         initial_drawing = st.session_state["canvas_snapshots"][-1] if st.session_state["canvas_snapshots"] else None
         canvas_key = f"leading_lines_canvas_{st.session_state['canvas_key_version']}"
