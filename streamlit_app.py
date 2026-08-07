@@ -831,10 +831,14 @@ if captured_bytes is not None:
     temp_path = "temp_upload.jpg"
     cv2.imwrite(temp_path, bgr_array)
 
-    mentor = PhotoMentor(temp_path, target_aspect_ratio_str=active_preset["aspect_ratio"])
+    # No aspect-ratio cropping here — the photographer preset's framing only
+    # affects color grading and the live-viewfinder guide, not the photo
+    # itself. Everything below works on the full image as uploaded (only
+    # capped in resolution for performance, never cropped).
+    mentor = PhotoMentor(temp_path)
 
-    cropped_rgb = cv2.cvtColor(mentor.img, cv2.COLOR_BGR2RGB)
-    pil_image = Image.fromarray(cropped_rgb)
+    full_rgb = cv2.cvtColor(mentor.img, cv2.COLOR_BGR2RGB)
+    pil_image = Image.fromarray(full_rgb)
 
     exp_grade, exp_advice, brightness = mentor.analyze_exposure()
     comp_grade, comp_advice, tilt = mentor.analyze_composition()
@@ -842,10 +846,35 @@ if captured_bytes is not None:
     sat_grade, sat_advice, saturation = mentor.analyze_saturation()
 
     # -------------------------------------------------------------
-    # 2. Fine-Tune Adjustments (editable sliders + revert button)
+    # 2. Check Composition Guides on Your Photo
     # -------------------------------------------------------------
     st.divider()
-    st.subheader("2. Fine-Tune Adjustments")
+    st.subheader("2. Check Composition Guides on Your Photo")
+    st.caption(
+        "See how each composition guide lines up with your actual photo, at its own aspect ratio."
+    )
+
+    guide_check_choice = st.selectbox(
+        "Composition guide",
+        ["Golden Spiral", "Rule of Thirds", "Golden Triangles", "Golden Section"],
+        index=["Golden Spiral", "Rule of Thirds", "Golden Triangles", "Golden Section"].index(
+            active_preset.get("default_guide", "Golden Spiral")
+        ),
+        key="guide_check_choice",
+    )
+    guide_overlay_bgr = mentor.draw_composition_guide(guide_check_choice)
+    guide_overlay_rgb = cv2.cvtColor(guide_overlay_bgr, cv2.COLOR_BGR2RGB)
+    st.image(
+        guide_overlay_rgb,
+        caption=f"{guide_check_choice} guide overlaid on your photo",
+        use_container_width=True,
+    )
+
+    # -------------------------------------------------------------
+    # 3. Fine-Tune Adjustments (editable sliders + revert button)
+    # -------------------------------------------------------------
+    st.divider()
+    st.subheader("3. Fine-Tune Adjustments")
     st.caption(
         f"These start at the recommended values for **{selected_preset_name}**. "
         "Drag any slider to override them, or revert back at any time."
@@ -908,7 +937,7 @@ if captured_bytes is not None:
         st.image(preview_rgb, use_container_width=True)
 
     st.divider()
-    st.subheader(f"3. Metric Breakdown & {selected_preset_name} Tailored Fixes")
+    st.subheader(f"4. Metric Breakdown & {selected_preset_name} Tailored Fixes")
 
     def display_metric_section(title, grade, advice, metric_label, metric_value, is_imperfect, fix_func):
         st.markdown(f"### {title}: **{grade}**")
@@ -927,7 +956,7 @@ if captured_bytes is not None:
 
             comp_col1, comp_col2 = st.columns(2)
             with comp_col1:
-                st.image(pil_image, caption=f"Conformed Input ({active_preset['aspect_ratio']})", use_container_width=True)
+                st.image(pil_image, caption="Your Photo", use_container_width=True)
             with comp_col2:
                 st.image(fixed_rgb, caption=f"After ({title} Adjusted for {selected_preset_name})", use_container_width=True)
         else:
@@ -962,7 +991,7 @@ if captured_bytes is not None:
     # -------------------------------------------------------------
     # 4. Add Leading Lines (draw + drag on the photo)
     # -------------------------------------------------------------
-    st.subheader("4. Add Leading Lines")
+    st.subheader("5. Add Leading Lines")
 
     lines_overlay_rgba = None
 
@@ -1061,7 +1090,7 @@ if captured_bytes is not None:
     # -------------------------------------------------------------
     # 5. Master Result: style, accessibility, and heatmap
     # -------------------------------------------------------------
-    st.subheader(f"5. Master Result: {selected_preset_name} Style")
+    st.subheader(f"6. Master Result: {selected_preset_name} Style")
     st.write(f"Combines general technical corrections with color grading tailored to **{selected_preset_name}**.")
 
     st.markdown("**🎨 Colorblind-Friendly Mode**")
@@ -1121,13 +1150,19 @@ if captured_bytes is not None:
         styled_bgr = cv2.cvtColor(np.array(styled_pil.convert("RGB")), cv2.COLOR_RGB2BGR)
 
     if cb_enabled:
-        styled_bgr = mentor.apply_colorblind_correction(styled_bgr, cb_type=cb_type_key)
+        try:
+            styled_bgr = mentor.apply_colorblind_correction(styled_bgr, cb_type=cb_type_key)
+        except Exception:
+            st.warning(
+                "Couldn't apply the colorblind-friendly adjustment to this photo — showing the "
+                "unadjusted result instead. Try a different photo or preset."
+            )
 
     styled_rgb = cv2.cvtColor(styled_bgr, cv2.COLOR_BGR2RGB)
 
     m_col1, m_col2 = st.columns(2)
     with m_col1:
-        st.image(pil_image, caption=f"Original Conformed Image ({active_preset['aspect_ratio']})", use_container_width=True)
+        st.image(pil_image, caption="Original Photo", use_container_width=True)
     with m_col2:
         st.image(styled_rgb, caption=f"Final Output ({selected_preset_name} Preset)", use_container_width=True)
 
