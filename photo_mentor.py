@@ -258,33 +258,43 @@ class PhotoMentor:
     # -----------------------------------------------------------------
     # Colorblind-Friendly Correction (Daltonization)
     # -----------------------------------------------------------------
-    # Standard RGB<->LMS conversion matrices used for CVD simulation.
-    _CB_LMS_IN = np.array([
-        [17.8824, 43.5161, 4.11935],
-        [3.45565, 27.1554, 3.86714],
-        [0.0299566, 0.184309, 1.46709],
-    ])
-    _CB_LMS_OUT = np.linalg.inv(_CB_LMS_IN)
-
-    # Confusion-line projection matrices (applied in LMS space) approximating
-    # how each dichromatic type of color vision deficiency perceives color.
-    _CB_SIM = {
+    # Full-severity CVD simulation matrices (Machado, Oliveira & Fernandes,
+    # "A Physiologically-based Model for Simulation of Color Vision
+    # Deficiency", 2009), applied directly to linear (gamma-decoded) RGB.
+    # A naive single linear projection in LMS space (the more commonly seen
+    # "textbook" approach) works reasonably for protanopia/deuteranopia but
+    # sends a large fraction of tritanopia's simulated colors wildly outside
+    # the visible RGB gamut, producing distorted, neon-looking results once
+    # clipped. These matrices are fit to stay within gamut for all three
+    # types, including tritanopia.
+    _CB_SIM_RGB = {
         "protanopia": np.array([
-            [0, 2.02344, -2.52581],
-            [0, 1, 0],
-            [0, 0, 1],
+            [0.152286, 1.052583, -0.204868],
+            [0.114503, 0.786281, 0.099216],
+            [-0.003882, -0.048116, 1.051998],
         ]),
         "deuteranopia": np.array([
-            [1, 0, 0],
-            [0.494207, 0, 1.24827],
-            [0, 0, 1],
+            [0.367322, 0.860646, -0.227968],
+            [0.280085, 0.672501, 0.047413],
+            [-0.011820, 0.042940, 0.968881],
         ]),
         "tritanopia": np.array([
-            [1, 0, 0],
-            [0, 1, 0],
-            [-0.395913, 0.801109, 0],
+            [1.255528, -0.076749, -0.178779],
+            [-0.078411, 0.930809, 0.147602],
+            [0.004733, 0.691367, 0.303900],
         ]),
     }
+
+    @staticmethod
+    def _srgb_to_linear(rgb_uint8):
+        x = rgb_uint8.astype(np.float32) / 255.0
+        return np.where(x <= 0.04045, x / 12.92, ((x + 0.055) / 1.055) ** 2.4)
+
+    @staticmethod
+    def _linear_to_srgb(linear):
+        x = np.clip(linear, 0, 1)
+        out = np.where(x <= 0.0031308, x * 12.92, 1.055 * (x ** (1 / 2.4)) - 0.055)
+        return np.clip(out * 255, 0, 255).astype(np.uint8)
 
     def apply_colorblind_correction(self, img_bgr=None, cb_type="deuteranopia", strength=1.0):
         """
@@ -296,24 +306,22 @@ class PhotoMentor:
         tritanopia.
         """
         src = self.img if img_bgr is None else img_bgr
-        sim_matrix = self._CB_SIM.get(cb_type, self._CB_SIM["deuteranopia"])
+        matrix = self._CB_SIM_RGB.get(cb_type, self._CB_SIM_RGB["deuteranopia"])
 
-        rgb = cv2.cvtColor(src, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
-        flat = rgb.reshape(-1, 3).T  # 3 x N
-
-        lms = self._CB_LMS_IN @ flat
-        lms_sim = sim_matrix @ lms
-        rgb_sim = (self._CB_LMS_OUT @ lms_sim).T.reshape(rgb.shape)
+        rgb = cv2.cvtColor(src, cv2.COLOR_BGR2RGB)
+        linear = self._srgb_to_linear(rgb)
+        flat = linear.reshape(-1, 3).T  # 3 x N
+        sim_linear = (matrix @ flat).T.reshape(linear.shape)
 
         # Error = the color information lost in simulation.
-        error = rgb - rgb_sim
+        error = linear - sim_linear
         correction = np.zeros_like(error)
         correction[:, :, 1] = error[:, :, 0] * 0.7 + error[:, :, 1]
         correction[:, :, 2] = error[:, :, 0] * 0.7 + error[:, :, 2]
 
-        corrected = np.clip(rgb + correction * strength, 0, 1)
-        corrected_bgr = cv2.cvtColor((corrected * 255).astype(np.uint8), cv2.COLOR_RGB2BGR)
-        return corrected_bgr
+        corrected_linear = np.clip(linear + correction * strength, 0, 1)
+        corrected_rgb = self._linear_to_srgb(corrected_linear)
+        return cv2.cvtColor(corrected_rgb, cv2.COLOR_RGB2BGR)
 
     def simulate_colorblindness(self, img_bgr=None, cb_type="deuteranopia"):
         """
@@ -323,16 +331,15 @@ class PhotoMentor:
         (e.g. a sample color wheel) before/alongside offering the correction.
         """
         src = self.img if img_bgr is None else img_bgr
-        sim_matrix = self._CB_SIM.get(cb_type, self._CB_SIM["deuteranopia"])
+        matrix = self._CB_SIM_RGB.get(cb_type, self._CB_SIM_RGB["deuteranopia"])
 
-        rgb = cv2.cvtColor(src, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
-        flat = rgb.reshape(-1, 3).T
+        rgb = cv2.cvtColor(src, cv2.COLOR_BGR2RGB)
+        linear = self._srgb_to_linear(rgb)
+        flat = linear.reshape(-1, 3).T
+        sim_linear = (matrix @ flat).T.reshape(linear.shape)
+        sim_rgb = self._linear_to_srgb(sim_linear)
 
-        lms = self._CB_LMS_IN @ flat
-        lms_sim = sim_matrix @ lms
-        rgb_sim = np.clip((self._CB_LMS_OUT @ lms_sim).T.reshape(rgb.shape), 0, 1)
-
-        return cv2.cvtColor((rgb_sim * 255).astype(np.uint8), cv2.COLOR_RGB2BGR)
+        return cv2.cvtColor(sim_rgb, cv2.COLOR_RGB2BGR)
 
     # -----------------------------------------------------------------
     # Visual-Attention / Contrast Heatmap
