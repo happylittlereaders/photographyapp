@@ -95,6 +95,28 @@ st.markdown(
         background-color: #dcc86f;
         color: #0f0f0f;
     }
+    .st-key-photographer_selector_container label p {
+        font-size: 1.05rem !important;
+        font-weight: 800 !important;
+        color: #dcc86f !important;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+    }
+    .st-key-photographer_selector_container div[data-baseweb="select"] > div {
+        background: linear-gradient(135deg, rgba(220,200,111,0.16) 0%, rgba(220,200,111,0.04) 100%) !important;
+        border: 2px solid #dcc86f !important;
+        border-radius: 10px !important;
+        min-height: 56px !important;
+        box-shadow: 0 0 14px rgba(220, 200, 111, 0.2);
+    }
+    .st-key-photographer_selector_container div[data-baseweb="select"] > div:hover {
+        box-shadow: 0 0 20px rgba(220, 200, 111, 0.4);
+    }
+    .st-key-photographer_selector_container div[data-baseweb="select"] span {
+        font-size: 1.25rem !important;
+        font-weight: 700 !important;
+        color: #f5eccb !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -633,11 +655,12 @@ def show_photographer_dialog(name):
 
 
 # Select Preset
-selected_preset_name = st.selectbox(
-    "📸 Choose Photographer Style / Dataset",
-    list(PHOTOGRAPHER_PRESETS.keys()),
-    index=0
-)
+with st.container(key="photographer_selector_container"):
+    selected_preset_name = st.selectbox(
+        "📸 Choose Photographer Style / Dataset",
+        list(PHOTOGRAPHER_PRESETS.keys()),
+        index=0
+    )
 
 active_preset = PHOTOGRAPHER_PRESETS[selected_preset_name]
 
